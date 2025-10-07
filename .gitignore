@@ -1,0 +1,13 @@
+.env
+
+audio_files
+build
+logs
+
+# Test binaries
+*.test
+*.out
+
+# Go build artifacts
+/telegram-audio-bot
+/dist/
