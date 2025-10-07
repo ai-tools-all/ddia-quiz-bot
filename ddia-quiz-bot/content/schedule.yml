@@ -1,0 +1,11 @@
+chapters:
+  - chapter: 3
+    path: "chapters/ch3-storage"
+    start_date: "${CHAPTER_3_START_DATE}" # Use a past date to test immediate posting
+    questions:
+      - day: 1
+        file: "01-kv-basics.md"
+      - day: 2
+        file: "02-compaction.md"
+        include_stories:
+          - netflix-cassandra

@@ -9,3 +9,6 @@
 - numbered prefix is a running number starting from `001` (3 padded integer) for each day.
 
 
+## building the project
+
+`scripts/build.sh` to build the project 

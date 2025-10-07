@@ -11,3 +11,5 @@ logs
 # Go build artifacts
 /telegram-audio-bot
 /dist/
+build/
+quiz-daemon
