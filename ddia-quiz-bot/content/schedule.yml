@@ -1,11 +1,11 @@
 chapters:
   - chapter: 3
-    path: "chapters/ch3-storage"
+    path: "chapters/03-storage-and-retrieval"
     start_date: "${CHAPTER_3_START_DATE}" # Use a past date to test immediate posting
     questions:
       - day: 1
-        file: "01-kv-basics.md"
+        file: "01-key-value-stores.md"
       - day: 2
-        file: "02-compaction.md"
+        file: "02-compaction-strategies.md"
         include_stories:
           - netflix-cassandra

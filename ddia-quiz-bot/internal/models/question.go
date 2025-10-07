@@ -4,7 +4,7 @@ package models
 type Question struct {
 	// --- File Metadata (not in YAML) ---
 	Path      string `yaml:"-"`
-	ChapterID string `yaml:"-"` // e.g., "ch3-storage"
+	ChapterID string `yaml:"-"` // e.g., "03-storage-and-retrieval"
 
 	// --- Frontmatter ---
 	ID             string   `yaml:"id"`

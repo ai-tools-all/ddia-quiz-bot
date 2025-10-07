@@ -1,8 +1,9 @@
 ---
-id: ch3_compaction_02
+id: ch03-compaction-latest-value
 day: 2
 tags: [compaction, storage, optimization]
-related_stories: []
+related_stories:
+  - netflix-cassandra
 ---
 
 # Compaction Strategy
