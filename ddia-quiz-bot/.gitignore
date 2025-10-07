@@ -1,0 +1,29 @@
+# Binaries
+quiz-daemon
+
+# Build artifacts
+build/
+
+# Logs
+logs/
+
+# Environment files (uncomment if you want to keep secrets out of repo)
+# .env
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go build cache
+.cache/

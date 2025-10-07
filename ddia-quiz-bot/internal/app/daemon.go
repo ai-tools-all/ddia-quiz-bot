@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
 
 	"github.com/your-username/ddia-quiz-bot/internal/config"
 	"github.com/your-username/ddia-quiz-bot/internal/discovery"
@@ -25,7 +25,7 @@ const reloadDebounceDuration = 2 * time.Second
 
 type Daemon struct {
 	contentPath    string
-	logger         *log.Logger
+	logger         *logrus.Logger
 	notifiers      []notifier.Notifier
 	state          *state.Manager
 	presenter      *presenter.SocialPresenter
@@ -41,7 +41,7 @@ type Daemon struct {
 }
 
 // NewDaemon initializes the application.
-func NewDaemon(contentPath string, logger *log.Logger, notifiers []notifier.Notifier, stateMgr *state.Manager, postHour, postMinute int) *Daemon {
+func NewDaemon(contentPath string, logger *logrus.Logger, notifiers []notifier.Notifier, stateMgr *state.Manager, postHour, postMinute int) *Daemon {
 	return &Daemon{
 		contentPath: contentPath,
 		logger:      logger,
@@ -55,13 +55,13 @@ func NewDaemon(contentPath string, logger *log.Logger, notifiers []notifier.Noti
 
 // Run starts all long-running processes.
 func (d *Daemon) Run() error {
-	d.logger.Println("Starting DDIA Quiz Daemon...")
+	d.logger.Info("Starting DDIA Quiz Daemon...")
 
 	// 1. Initial Load
 	if err := d.Reload(); err != nil {
 		return fmt.Errorf("initial load failed: %w", err)
 	}
-	d.logger.Println("Initial content loaded successfully.")
+	d.logger.Info("Initial content loaded successfully.")
 
 	// 2. Start Filesystem Watcher
 	watcher, err := fsnotify.NewWatcher()
@@ -85,7 +85,7 @@ func (d *Daemon) Run() error {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	d.logger.Println("Daemon is running. Watching for file changes and scheduled posts.")
+	d.logger.Info("Daemon is running. Watching for file changes and scheduled posts.")
 
 	// 4. Main Event Loop
 	for {
@@ -95,11 +95,11 @@ func (d *Daemon) Run() error {
 		case event := <-watcher.Events:
 			d.handleFileChange(event)
 		case err := <-watcher.Errors:
-			d.logger.Printf("ERROR: Watcher error: %v", err)
+			d.logger.WithError(err).Error("Watcher error")
 		case <-signalChan:
-			d.logger.Println("Shutdown signal received. Saving state and exiting.")
+			d.logger.Info("Shutdown signal received. Saving state and exiting.")
 			if err := d.state.Save(); err != nil {
-				d.logger.Printf("ERROR: Failed to save state on shutdown: %v", err)
+				d.logger.WithError(err).Error("Failed to save state on shutdown")
 			}
 			return nil
 		}
@@ -117,7 +117,7 @@ func (d *Daemon) handleFileChange(event fsnotify.Event) {
 		// Set a new timer
 		d.reloadTimer = time.AfterFunc(reloadDebounceDuration, func() {
 			if err := d.Reload(); err != nil {
-				d.logger.Printf("ERROR: Automatic reload failed: %v", err)
+				d.logger.WithError(err).Error("Automatic reload failed")
 			}
 		})
 		d.reloadTimerMux.Unlock()
@@ -126,7 +126,7 @@ func (d *Daemon) handleFileChange(event fsnotify.Event) {
 
 // Reload attempts to load all config and content from disk.
 func (d *Daemon) Reload() error {
-	d.logger.Println("Change detected. Attempting to reload schedule and content...")
+	d.logger.Info("Change detected. Attempting to reload schedule and content...")
 
 	newSchedule, err := config.LoadSchedule(filepath.Join(d.contentPath, "schedule.yml"))
 	if err != nil {
@@ -146,7 +146,7 @@ func (d *Daemon) Reload() error {
 	d.store = newStore
 	d.mutex.Unlock()
 
-	d.logger.Println("Reload successful. Now running with updated configuration.")
+	d.logger.Info("Reload successful. Now running with updated configuration.")
 	return nil
 }
 
@@ -165,9 +165,16 @@ func (d *Daemon) checkForScheduledPosts() {
 	needsSave := false
 
 	for _, chap := range schedule.Chapters {
+		d.logger.WithFields(logrus.Fields{
+			"chapter":   chap.Chapter,
+			"startDate": chap.StartDate,
+		}).Debug("Processing chapter schedule")
 		startDate, err := chap.GetStartDate()
 		if err != nil {
-			d.logger.Printf("WARN: Invalid start_date for chapter %d: %v", chap.Chapter, err)
+			d.logger.WithFields(logrus.Fields{
+				"chapter": chap.Chapter,
+				"error":   err,
+			}).Warn("Invalid start_date for chapter")
 			continue
 		}
 
@@ -183,7 +190,7 @@ func (d *Daemon) checkForScheduledPosts() {
 					}
 				}
 				if foundQ == nil {
-					d.logger.Printf("WARN: Question file '%s' from schedule not found in store.", qSched.File)
+					d.logger.WithField("file", qSched.File).Warn("Question file from schedule not found in store")
 					continue
 				}
 				question = foundQ
@@ -198,11 +205,14 @@ func (d *Daemon) checkForScheduledPosts() {
 			postTime := time.Date(postDate.Year(), postDate.Month(), postDate.Day(), d.postHour, d.postMinute, 0, 0, time.UTC)
 
 			if now.After(postTime) {
-				d.logger.Printf("Found pending post: %s", question.ID)
+				d.logger.WithField("questionID", question.ID).Info("Found pending post")
 
 				stories, err := matcher.FindStoriesForQuestion(question.ID, &qSched)
 				if err != nil {
-					d.logger.Printf("ERROR: Could not find stories for %s: %v", question.ID, err)
+					d.logger.WithFields(logrus.Fields{
+						"questionID": question.ID,
+						"error":      err,
+					}).Error("Could not find stories for question")
 					continue
 				}
 
@@ -214,14 +224,20 @@ func (d *Daemon) checkForScheduledPosts() {
 
 				content, err := d.presenter.Format(dailyPost)
 				if err != nil {
-					d.logger.Printf("ERROR: Could not format post for %s: %v", question.ID, err)
+					d.logger.WithFields(logrus.Fields{
+						"questionID": question.ID,
+						"error":      err,
+					}).Error("Could not format post")
 					continue
 				}
 
 				// Send to all notifiers
 				for _, n := range d.notifiers {
 					if err := n.Notify(content); err != nil {
-						d.logger.Printf("ERROR: Notifier failed for %s: %v", question.ID, err)
+						d.logger.WithFields(logrus.Fields{
+							"questionID": question.ID,
+							"error":      err,
+						}).Error("Notifier failed")
 						// Decide on retry logic here if needed
 					}
 				}
@@ -234,7 +250,7 @@ func (d *Daemon) checkForScheduledPosts() {
 
 	if needsSave {
 		if err := d.state.Save(); err != nil {
-			d.logger.Printf("ERROR: Failed to save state after posting: %v", err)
+			d.logger.WithError(err).Error("Failed to save state after posting")
 		}
 	}
 }

@@ -1,6 +1,6 @@
 package notifier
 
-import "log"
+import "github.com/sirupsen/logrus"
 
 // Notifier is the interface for sending a formatted post to a platform.
 type Notifier interface {
@@ -9,12 +9,12 @@ type Notifier interface {
 
 // LogNotifier is a simple implementation that prints to a logger.
 type LogNotifier struct {
-	Logger *log.Logger
+	Logger *logrus.Logger
 }
 
 func (n *LogNotifier) Notify(content string) error {
-	n.Logger.Println("--- NEW POST ---")
-	n.Logger.Println(content)
-	n.Logger.Println("--- END POST ---")
+	n.Logger.Info("--- NEW POST ---")
+	n.Logger.Info(content)
+	n.Logger.Info("--- END POST ---")
 	return nil
 }
