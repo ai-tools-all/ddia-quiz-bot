@@ -12,9 +12,106 @@ Design and implement a new terminal-native experience for subjective quizzes. Th
 1. **Quiz Type**: Deliver only subjective-question flows in the first release. MCQ support is out of scope for now, but the architecture must make adding an objective mode straightforward.
 2. **Session Storage**: Persist drafts and completed runs solely as JSON using a consistent schema. CSV generation stays outside the TUI.
 3. **Session Naming**: Use filenames that embed the quiz taker and timestamp to support multiple resumable sessions: `sessions/<user>/<mode>/<timestamp>-<user>-<mode>.json` (e.g., `sessions/abhishek/subjective/20251011-101530-abhishek-subjective.json`).
-4. **Binary Strategy**: Introduce a new binary (`quiz-tui`) with a `--mode` flag. The initial implementation will fully support `subjective`; an `objective` mode stub plus shared plumbing will keep the future MCQ flow consistent.
+4. **Binary Strategy**: Introduce a new binary (`quiz-tui`) - standalone binary, not extending the existing `quiz-evaluator`.
 5. **Markdown Rendering**: Embed `github.com/charmbracelet/glow`/`glamour` to render markdown inline; no external command invocation.
 6. **Evaluation Integration**: When the user opts to evaluate, convert in-memory responses to the evaluator’s expected format temporarily, but do not emit CSV artifacts from the TUI.
+
+## Implementation Details (User-Specified)
+
+### Content Location
+- **Subjective Questions Path**: `ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective/`
+- **Structure**: Organized by difficulty levels (L3-L7) with baseline and bar-raiser subdirectories
+- **Question Format**: YAML frontmatter with fields: id, type, level, category, topic, subtopic, estimated_time
+- **Content Sections**: main_question, core_concepts, peripheral_concepts, sample answers, common_mistakes, follow_up questions
+- **Available Topics**: GFS (replication, consistency, chunk design) and Raft consensus (intro, basics, election, log replication, performance, evolution)
+
+### User Management
+- **User Identity**: Via CLI flag `--user <username>` (e.g., `quiz-tui --user abhishek`)
+- **Required**: User must be specified at startup
+
+### Question Selection
+- **Interactive Selection**: TUI presents a list of available topics/questions from the markdown folder
+- **User Choice**: Users select questions from within the TUI interface (not via CLI flags)
+- **Simple Approach**: Show all available questions grouped by level and category for selection
+
+### Session Management
+- **Resume on Startup**: If user has existing incomplete sessions, show selection menu
+- **Session Selection**: Allow user to pick which session to resume or start new
+- **Auto-save**: Every 30 seconds after any change
+- **Answer Format**: Plain text only for initial version
+
+### Configuration
+- **Config File**: `config/tui.toml` (project-local)
+- **Default Settings**:
+  - `auto_save_interval = 30` (seconds)
+  - `sessions_dir = "sessions"`
+  - `content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"`
+
+### Binary Details
+- **Name**: `quiz-tui` (standalone, not extending quiz-evaluator)
+- **Location**: Will be built to `build/quiz-tui`
+- **Build Script**: New `scripts/build_tui.sh` (inspired by existing build.sh)
+
+## Final Implementation Approach (Clarified)
+
+### Question Selection Flow
+- **Simple Linear Flow**: Start from L3 and progress sequentially to L7
+- **No Individual Selection**: Questions are presented in order by difficulty level
+- **Level Progression**: L3-baseline → L3-bar-raiser → L4-baseline → L4-bar-raiser → ... → L7
+- **All Questions**: User goes through all available subjective questions in sequence
+
+### Session Behavior
+- **No Review Screen**: Users cannot review all answers at once
+- **No Explicit Submit**: Session auto-completes when last question is answered
+- **Auto-save Triggers**:
+  - When user moves to next question (immediate save)
+  - Every 30 seconds while user is typing/idle
+- **Immediate Persistence**: Each answer is saved as soon as user navigates away
+
+### Navigation Rules
+- **Linear Only**: No jumping between questions
+- **Sequential Enforcement**: Must proceed through questions in order
+- **No Back Navigation**: Once moved to next question, cannot go back (for initial version)
+- **Progress Indicator**: Show current position (e.g., "Question 3 of 15")
+
+### Code Reuse Strategy
+- **Leverage quiz-evaluator**: Reuse existing code where applicable
+- **Shared Modules**: Extract common functionality into shared packages:
+  - `internal/models/` - Reuse Question, UserResponse structs
+  - `internal/markdown/` - Reuse Scanner, Parser for reading questions
+  - `internal/config/` - Extend existing config management
+- **New Modules**: 
+  - `internal/tui/` - New TUI components and screens
+  - `internal/session/` - New session management (JSON-based)
+
+### Display Formatting
+- **Minimal Display**: Show only the main_question text
+- **Hidden Metadata**: Do not show:
+  - Level, category, topic information
+  - Estimated time
+  - Core concepts or rubrics
+  - Sample answers
+- **Clean Interface**: Focus on question and answer area only
+
+### Project Structure
+```
+quiz-evaluator/           # Existing evaluator (keep as-is)
+internal/                 # Shared modules (refactored from quiz-evaluator)
+  ├── models/            # Question, UserResponse structs
+  ├── markdown/          # Scanner, Parser
+  ├── config/            # Configuration management
+  └── common/            # Other shared utilities
+cmd/quiz-tui/            # New TUI binary entry point
+internal/tui/            # TUI-specific components
+  ├── screens/           # Welcome, Question, Complete screens
+  ├── components/        # Reusable UI widgets
+  └── session/           # Session management (JSON)
+scripts/
+  ├── build.sh          # Existing build script
+  └── build_tui.sh      # New TUI build script
+config/
+  └── tui.toml          # TUI configuration file
+```
 
 ## Tentative Library Stack
 - **github.com/charmbracelet/bubbletea** – core TUI state machine and event loop.
@@ -33,7 +130,7 @@ Design and implement a new terminal-native experience for subjective quizzes. Th
 2. **JSON Session Lifecycle**: Auto-save progress, resume incomplete runs, and mark completion in a single JSON artifact.
 3. **Progress Awareness**: Visual cues for position, completion percentage, and unanswered items.
 4. **Review & Submission**: Let users review, edit, and confirm answers before finalizing.
-5. **Optional Evaluation Step**: Chain to the existing evaluator using the freshly collected responses without writing CSV to disk.
+5. **Optional Evaluation Step**: Future optional feature - evaluation integration not required for initial implementation.
 
 ### User Experience Goals
 - Keyboard-first navigation and shortcuts.
@@ -92,10 +189,14 @@ Design and implement a new terminal-native experience for subjective quizzes. Th
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Mode Strategy
-- Introduce a `Mode` interface with lifecycle hooks (`Prepare`, `BuildModel`, `SupportsQuestion(*Question)` etc.).
-- Implement `SubjectiveMode`, which filters questions where `QuestionType == "subjective"` and provisions subjective-specific screens.
-- Ship an `ObjectiveMode` skeleton returning “not yet implemented” but exercising the same interfaces to validate extensibility.
+### Data Flow
+1. User starts with `quiz-tui --user <name>`
+2. System checks for existing sessions
+3. User selects resume or new session
+4. Questions loaded from markdown files (L3 → L7 order)
+5. Linear progression through all questions
+6. Auto-save on navigation and timer
+7. Session marked complete after last question
 
 ## JSON Session Specification
 
@@ -166,54 +267,54 @@ Responsibilities:
 - Stream JSON-derived payloads directly to the evaluator CLI and capture the output for display inside the completion screen.
 
 ### 6. CLI Binary (`cmd/quiz-tui/main.go`)
-- Cobra root command `quiz-tui` with `--mode` (default `subjective`).
-- Commands:
-  - `start` (primary entry) — loads mode, sets up session, launches Bubbletea program.
-  - `resume` — accepts optional `--session` path; otherwise auto-picks the latest draft for the user/mode.
-  - `list-sessions` — helper to inspect stored drafts (preparing for multi-mode usage).
-- For now, invoking with `--mode objective` prints a TODO message referencing future work, proving the seam exists.
+- Simple CLI with required `--user` flag
+- Main command: `quiz-tui --user <username>` 
+- On startup:
+  - Check for existing incomplete sessions for the user
+  - If sessions exist, show selection menu to resume or start new
+  - If no sessions, start new quiz from L3
+- Uses Cobra for CLI parsing and Viper for config loading
 
 ### 7. Configuration Updates
-- Extend config to include `tui.sessions_dir`, `tui.auto_save_interval`, `tui.default_mode`.
-- Provide `tui.modes.subjective` settings (default chapter set, default question count, evaluation defaults).
-- Reserve `tui.modes.objective` section for future parameters so existing configs need not change later.
+- New `config/tui.toml` with settings:
+  - `sessions_dir = "sessions"`
+  - `auto_save_interval = 30`
+  - `content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"`
+- Configuration loaded via Viper with sensible defaults
 
-## Implementation Phases
+## Implementation Phases (Simplified)
 
-### Phase 1 – Foundations (Days 1-2)
-1. Introduce `Mode` abstractions and `SubjectiveMode` implementation scaffold.
-2. Extend `Question`/`Parser` with `QuestionType` while ensuring existing tooling keeps working.
-3. Create `SessionManager` writing JSON using the new naming convention.
-4. Add Glow/Glamour dependencies to `go.mod`.
+### Phase 1 – Foundations & Code Reuse (Day 1)
+1. Extract shared modules from `quiz-evaluator` to `internal/` directory
+2. Create `SessionManager` for JSON persistence with auto-save
+3. Set up project structure and dependencies (Bubbletea, Glamour, etc.)
+4. Create `scripts/build_tui.sh` based on existing build script
 
-**Deliverable**: CLI can load subjective questions, create a session file, and exit gracefully (no UI yet).
+**Deliverable**: Shared modules extracted, session management ready, build script working.
 
-### Phase 2 – TUI Shell (Days 3-5)
-1. Build Bubbletea skeleton with welcome → question → completion flow using placeholder content.
-2. Implement Glow-based markdown rendering and subjective answer textarea with auto-save hooks.
-3. Wire progress bar and navigation shortcuts.
+### Phase 2 – TUI Core (Days 2-3)
+1. Build Bubbletea skeleton with linear flow: welcome → questions → completion
+2. Implement question display (main_question only) with markdown rendering
+3. Add textarea component for plain text answers
+4. Wire up linear navigation (next only, no back)
 
-**Deliverable**: Interactive terminal flow for subjective questions with JSON drafts persisted.
+**Deliverable**: Basic TUI flow working with question display and answer input.
 
-### Phase 3 – Review & Submission (Days 6-7)
-1. Add review screen summarising answered/unanswered questions.
-2. Implement submission confirmation and final session state transition (`completed`).
-3. Provide resume logic picking up saved sessions.
+### Phase 3 – Session Management (Days 4-5)
+1. Implement auto-save on navigation and 30-second timer
+2. Add resume functionality with session selection on startup
+3. Handle session completion when last question answered
+4. Add progress indicator showing current position
 
-**Deliverable**: End-to-end subjective quiz run with resume support.
+**Deliverable**: Complete session lifecycle with auto-save and resume working.
 
-### Phase 4 – Evaluation Bridge & Polish (Days 8-9)
-1. Integrate optional evaluator invocation using in-memory conversion.
-2. Add error handling, toast messages, and help overlay.
-3. Finalise configuration wiring and CLI UX.
+### Phase 4 – Polish & Testing (Day 6)
+1. Add error handling and edge cases
+2. Test with all subjective questions (L3-L7)
+3. Ensure config file (`config/tui.toml`) works properly
+4. Add keyboard shortcuts and help text
 
-**Deliverable**: Production-ready subjective TUI binary with optional evaluation.
-
-### Phase 5 – Future Mode Hooks (Day 10)
-1. Add `ObjectiveMode` stub implementing the Mode interface but returning `mode not implemented` messages.
-2. Document extension points within code comments (minimal, only where necessary) to guide future MCQ work.
-
-**Deliverable**: Codebase ready to host an objective TUI with minimal refactor.
+**Deliverable**: Production-ready TUI binary for subjective quiz sessions.
 
 ## Testing Strategy
 
