@@ -2,7 +2,7 @@
 
 ## Date: 2025-10-10
 ## Category: Feature
-## Status: Planning (updated after stakeholder clarifications)
+## Status: Implemented (all core features complete)
 
 ## Overview
 Design and implement a new terminal-native experience for subjective quizzes. The TUI will read subjective questions from our markdown corpus, present them interactively, collect free-form answers, and persist sessions strictly in JSON (no CSV exports). We will ship this as a dedicated binary for subjective quizzes while designing shared infrastructure so an objective/MCQ TUI can be added later without rework.
@@ -349,3 +349,177 @@ Responsibilities:
 
 ## Conclusion
 The revised plan focuses on a JSON-only, subjective-first TUI delivered as a dedicated binary while laying groundwork for a future objective experience. By introducing mode abstractions, a shared engine, and a robust session manager, we guarantee that adding MCQ support later requires only mode-specific UI and answer handling, not wholesale rewrites. Glow-based rendering, auto-save, and resume flows provide a polished terminal experience aligned with the updated stakeholder requirements.
+
+## Implementation Summary
+
+### Completed Features
+
+All planned features from phases 1-4 have been successfully implemented:
+
+#### Phase 1: Foundations ✅
+- Extracted shared modules (models, markdown, config) to top-level `internal/` directory
+- Created JSON-based SessionManager with atomic saves
+- Set up complete project structure with proper Go module organization
+- Added all required dependencies (bubbletea, glamour, lipgloss, bubbles, cobra, viper)
+- Created build script at `scripts/build_tui.sh`
+
+#### Phase 2: Core TUI ✅
+- Built Bubbletea application with state machine (Welcome → SessionSelect → Question → Complete)
+- Implemented markdown rendering using glamour for question display
+- Integrated textarea component from bubbles for answer input
+- Implemented linear navigation with Ctrl+N for next question
+- Only displays main_question text (metadata hidden as per spec)
+
+#### Phase 3: Session Management ✅
+- Implemented auto-save with 30-second interval timer
+- Added manual save with Ctrl+S
+- Implemented session resume functionality with selection menu
+- Sessions automatically complete after last question
+- Progress indicator shows "Question X of Y"
+- Session files follow naming convention: `sessions/<user>/<mode>/<timestamp>-<user>-<mode>.json`
+
+#### Phase 4: Polish & UX ✅
+- Added comprehensive error handling
+- Created `config/tui.toml` with sensible defaults
+- Keyboard shortcuts: Ctrl+C (quit with auto-save), Ctrl+N (next), Ctrl+S (manual save), q (quit), r (resume), n (new session)
+- Visual feedback: save indicator, styled borders, color-coded UI elements
+- Help text displayed on each screen
+
+### Project Structure
+
+```
+ddia-clicker/
+├── cmd/quiz-tui/           # TUI binary entry point
+│   └── main.go
+├── internal/               # Shared modules
+│   ├── models/            # Question, Response structs
+│   ├── markdown/          # Scanner, Parser for questions
+│   ├── config/            # Config management (TUI + evaluator)
+│   └── tui/               # TUI-specific code
+│       ├── screens/       # Main application screens
+│       ├── components/    # Reusable UI widgets
+│       └── session/       # JSON session management
+├── config/
+│   └── tui.toml          # TUI configuration
+├── scripts/
+│   └── build_tui.sh      # Build script
+├── sessions/             # Session storage directory
+└── build/
+    └── quiz-tui          # Compiled binary
+
+quiz-evaluator/           # Existing evaluator (unchanged)
+```
+
+### Usage
+
+1. **Build the binary**:
+   ```bash
+   ./scripts/build_tui.sh
+   ```
+
+2. **Run the TUI**:
+   ```bash
+   ./build/quiz-tui --user <username>
+   ```
+
+3. **Keyboard Controls**:
+   - `Enter` - Start new quiz / Continue
+   - `Ctrl+N` or `Ctrl+Enter` - Save and move to next question
+   - `Ctrl+S` - Manual save (auto-saves every 30s)
+   - `Ctrl+C` - Quit (saves current answer)
+   - `r` - Resume incomplete session
+   - `n` - Start new session
+   - `q` - Quit
+
+### Session File Format
+
+Sessions are stored as JSON in `sessions/<user>/subjective/`:
+
+```json
+{
+  "session": {
+    "session_id": "20251011-101530-abhishek-subjective",
+    "user": "abhishek",
+    "mode": "subjective",
+    "status": "in_progress",
+    "created_at": "2025-10-11T10:15:30Z",
+    "updated_at": "2025-10-11T10:35:12Z",
+    "question_count": 15,
+    "answered": 8
+  },
+  "questions": [
+    {
+      "id": "gfs-replication-basics",
+      "title": "GFS Replication",
+      "level": "L3",
+      "chapter": "9",
+      "metadata": {"category": "distributed-systems"}
+    }
+  ],
+  "responses": [
+    {
+      "question_id": "gfs-replication-basics",
+      "answer": "GFS uses replication...",
+      "updated_at": "2025-10-11T10:24:02Z",
+      "time_spent_seconds": 142
+    }
+  ]
+}
+```
+
+### Configuration
+
+The `config/tui.toml` file allows customization:
+
+```toml
+# Auto-save interval in seconds
+auto_save_interval = 30
+
+# Directory where session files are stored
+sessions_dir = "sessions"
+
+# Path to the content directory for subjective questions
+content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"
+```
+
+### Key Implementation Details
+
+1. **Question Loading**: Questions are loaded from L3 through L7 in order (baseline and bar-raiser mixed)
+2. **Auto-Save**: Triggers every 30 seconds and on navigation
+3. **Atomic Saves**: Uses temp file + rename for crash safety
+4. **Resume**: Detects incomplete sessions and allows resumption from last answered question
+5. **Linear Flow**: No back navigation, enforces sequential progression
+6. **Clean Display**: Only shows question text, not metadata or rubrics
+
+### Testing Notes
+
+- Binary builds successfully with all dependencies
+- Questions load correctly from the subjective directory structure
+- Session persistence tested with JSON format
+- All keyboard shortcuts functional
+- Error handling covers file I/O and parsing failures
+
+### Future Enhancements (Out of Scope)
+
+- Objective/MCQ mode support (architecture ready for extension)
+- Review screen before submission
+- Back navigation between questions
+- Evaluation integration from within TUI
+- Export sessions to CSV
+
+### Technical Decisions
+
+1. **Glamour for Markdown**: Provides rich terminal rendering without external dependencies
+2. **Bubbles Textarea**: Battle-tested component with good UX
+3. **JSON-only Sessions**: Single source of truth, no CSV generation from TUI
+4. **Atomic Saves**: Prevents corruption on crashes
+5. **Cobra + Viper**: Standard Go CLI patterns for maintainability
+
+## Conclusion
+
+The interactive quiz TUI has been fully implemented according to the specification. All core features are working, including session management, auto-save, resume functionality, and linear question progression. The codebase is structured to allow easy addition of objective mode in the future.
+
+**Build Status**: ✅ Successful  
+**All Features**: ✅ Complete  
+**Ready for Use**: ✅ Yes
+
