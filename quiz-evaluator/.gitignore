@@ -1,0 +1,94 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.txt
+coverage.html
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Build output
+quiz-eval
+quiz-eval-*
+dist/
+build/
+
+# IDE specific files
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Configuration files with secrets
+config.local.yaml
+config.secret.yaml
+*-secret.yaml
+*-private.yaml
+
+# Output files from testing
+*.csv
+!samples/*.csv
+*_evaluated.csv
+*_summary.txt
+evaluations.csv
+results/
+output/
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# API keys and credentials
+*.key
+*.pem
+*.crt
+credentials.json
+secrets.yaml
+
+# Debug files
+debug
+__debug_bin*
+
+# Performance profiling
+*.prof
+*.trace
+
+# Documentation build
+docs/_build/
+*.pdf
+
+# Cache directories
+.cache/
+*.cache
