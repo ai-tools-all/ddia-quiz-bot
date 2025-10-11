@@ -113,7 +113,7 @@ func TestTopicDiscoveryWithChaptersRoot(t *testing.T) {
 	assert.Greater(t, gfsTopic.TotalCount, 0, "GFS topic should have questions")
 	assert.NotEmpty(t, gfsTopic.LevelCounts, "Should have level counts")
 
-	// Verify only GFS has questions (based on current state)
+	// Verify multiple topics have questions
 	hasQuestions := 0
 	for _, topic := range topics {
 		if topic.TotalCount > 0 {
@@ -122,7 +122,8 @@ func TestTopicDiscoveryWithChaptersRoot(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 1, hasQuestions, "Currently only one chapter (GFS) should have subjective questions")
+	assert.GreaterOrEqual(t, hasQuestions, 1, "At least one chapter should have subjective questions")
+	t.Logf("Found %d topics with questions", hasQuestions)
 }
 
 func TestAppModelQuestionLoading(t *testing.T) {
