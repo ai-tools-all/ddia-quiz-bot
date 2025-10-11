@@ -14,6 +14,7 @@ What is the main cost consideration for primary-backup replication?
 ## options
 - A) Complex software development requirements
 - B) Doubling hardware resources (CPU, memory, storage)
+- C) Licensing costs for client-side failover libraries
 
 ## answer
 B

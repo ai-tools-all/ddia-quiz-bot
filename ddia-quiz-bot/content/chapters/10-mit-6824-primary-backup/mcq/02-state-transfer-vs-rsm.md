@@ -14,6 +14,7 @@ Which replication approach does VMware FT use?
 ## options
 - A) State transfer - sending memory snapshots
 - B) Replicated state machine - sending operations/inputs
+- C) Periodic gossip synchronization using eventual consistency
 
 ## answer
 B

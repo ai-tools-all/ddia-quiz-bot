@@ -14,6 +14,7 @@ Why did VMware FT initially support only single-core VMs?
 ## options
 - A) Multi-core VMs consume too much memory
 - B) Multi-core execution introduces memory access interleaving non-determinism
+- C) Customers preferred single-core performance profiles
 
 ## answer
 B

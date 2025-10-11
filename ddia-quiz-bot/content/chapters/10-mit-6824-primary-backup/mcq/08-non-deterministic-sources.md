@@ -14,6 +14,7 @@ Which is NOT a source of non-determinism that VMware FT must handle?
 ## options
 - A) Arithmetic operations like addition
 - B) Random number generation
+- C) Timing variations in device interrupts
 
 ## answer
 A

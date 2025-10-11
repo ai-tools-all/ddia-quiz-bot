@@ -14,6 +14,7 @@ When can the primary send output to external clients in VMware FT?
 ## options
 - A) Immediately after processing the request
 - B) Only after the backup acknowledges receiving the log entries
+- C) Only after collecting acknowledgements from a quorum of clients
 
 ## answer
 B

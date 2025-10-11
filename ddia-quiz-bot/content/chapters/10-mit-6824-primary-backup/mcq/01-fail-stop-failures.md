@@ -14,6 +14,7 @@ What type of failures can primary-backup replication typically handle?
 ## options
 - A) Software bugs that cause incorrect calculations
 - B) Hardware failures that cause the server to stop executing
+- C) Byzantine failures caused by actively malicious replicas
 
 ## answer
 B

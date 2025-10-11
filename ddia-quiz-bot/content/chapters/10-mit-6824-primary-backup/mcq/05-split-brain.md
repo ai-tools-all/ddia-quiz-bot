@@ -14,6 +14,7 @@ How does VMware FT prevent split-brain during network partition?
 ## options
 - A) Using heartbeat timeouts to detect failures
 - B) Using atomic test-and-set on shared storage
+- C) Letting clients decide which replica to send requests to
 
 ## answer
 B

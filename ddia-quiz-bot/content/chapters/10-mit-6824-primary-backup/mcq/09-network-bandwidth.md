@@ -14,6 +14,7 @@ When is replicated state machine more bandwidth-efficient than state transfer?
 ## options
 - A) When state is small and changes frequently
 - B) When state is large but operations are small
+- C) When clients require causal consistency across regions
 
 ## answer
 B

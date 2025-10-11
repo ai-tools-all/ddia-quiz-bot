@@ -14,6 +14,7 @@ Which scenario would likely defeat primary-backup replication?
 ## options
 - A) Random hardware failure in one server
 - B) Earthquake affecting the entire datacenter
+- C) Planned OS upgrade on the primary with backup standing by
 
 ## answer
 B
