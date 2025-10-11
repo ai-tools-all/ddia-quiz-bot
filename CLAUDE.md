@@ -22,6 +22,7 @@
   - mcq style questions + subjective questions as per level. 
 
 - the tui for the mcq / subjective questions is in quiz-evaluator folder 
+  - build the tui using `./scripts/build_tui.sh`
 
 - spaced repetition is implemented for the MCQ style questions with persistence. 
   - how to create new questions / quiz ? - see the prompts/ folder on the general method used. verify that once by reading the folder `ddia-quiz-bot/content/chapters/10-mit-6824-primary-backup/subjective` (files in this fodler are large so do not read the entire file.) -
