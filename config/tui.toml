@@ -9,5 +9,6 @@ sessions_dir = "sessions"
 # Path to the chapters root directory (NEW: enables topic selection)
 chapters_root_path = "ddia-quiz-bot/content/chapters"
 
-# Deprecated: Path to the content directory for subjective questions (single topic mode)
-# content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"
+# Default question mode: "mcq", "subjective", or "mixed"
+# This sets the initial selection on the mode screen
+default_mode = "mcq"

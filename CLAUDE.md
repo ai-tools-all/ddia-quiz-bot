@@ -27,3 +27,4 @@
 - spaced repetition is implemented for the MCQ style questions with persistence. 
   - how to create new questions / quiz ? - see the prompts/ folder on the general method used. verify that once by reading the folder `ddia-quiz-bot/content/chapters/10-mit-6824-primary-backup/subjective` (files in this fodler are large so do not read the entire file.) -
   - use the `./build/md-toc` binary to read the table of content of the markdown files in a directory. 
+- transcriptions for mit 6824 lie in `transcripts/mit-6824-subtitles/`
