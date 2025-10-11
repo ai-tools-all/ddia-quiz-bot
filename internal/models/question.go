@@ -13,13 +13,13 @@ type Question struct {
 	Category           string            `toml:"category" json:"category"`
 	EvaluationRubric   map[string]string `toml:"evaluation_rubric" json:"evaluation_rubric"`
 	FilePath           string            `toml:"-" json:"-"` // Source file path
-	
+
 	// MCQ specific fields
-	Type        string   `toml:"type" json:"type"`                   // "subjective" or "mcq"
-	Options     []string `toml:"options" json:"options"`             // MCQ options
-	Answer      string   `toml:"answer" json:"answer"`               // Correct answer (A, B, C, D)
-	Explanation string   `toml:"explanation" json:"explanation"`     // MCQ explanation
-	Hook        string   `toml:"hook" json:"hook"`                   // Engagement hook
+	Type        string   `toml:"type" json:"type"`               // "subjective" or "mcq"
+	Options     []string `toml:"options" json:"options"`         // MCQ options
+	Answer      string   `toml:"answer" json:"answer"`           // Correct answer (A, B, C, D)
+	Explanation string   `toml:"explanation" json:"explanation"` // MCQ explanation
+	Hook        string   `toml:"hook" json:"hook"`               // Engagement hook
 }
 
 // QuestionIndex maps question IDs to Question objects

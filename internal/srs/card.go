@@ -17,10 +17,10 @@ const (
 
 // Card represents an SRS flashcard for a question
 type Card struct {
-	QuestionID string    `json:"question_id"`
-	Topic      string    `json:"topic"`  // e.g., "zookeeper", "gfs"
-	Level      string    `json:"level"`  // L3, L4, L5, etc.
-	Category   string    `json:"category"` // baseline, bar-raiser
+	QuestionID string `json:"question_id"`
+	Topic      string `json:"topic"`    // e.g., "zookeeper", "gfs"
+	Level      string `json:"level"`    // L3, L4, L5, etc.
+	Category   string `json:"category"` // baseline, bar-raiser
 
 	// SRS State
 	Interval     int       `json:"interval"`      // Days until next review
@@ -36,10 +36,10 @@ type Card struct {
 	HintsUsed    int `json:"hints_used"`    // Total hints across reviews
 
 	// MCQ specific metrics
-	QuestionType     string   `json:"question_type"`      // "subjective" or "mcq"
-	MCQAccuracy      float64  `json:"mcq_accuracy"`       // MCQ-specific accuracy (0.0-1.0)
-	LastMCQChoice    string   `json:"last_mcq_choice"`    // Track last selected option (A, B, C, D)
-	IncorrectChoices []string `json:"incorrect_choices"`  // Track wrong answer patterns
+	QuestionType     string   `json:"question_type"`     // "subjective" or "mcq"
+	MCQAccuracy      float64  `json:"mcq_accuracy"`      // MCQ-specific accuracy (0.0-1.0)
+	LastMCQChoice    string   `json:"last_mcq_choice"`   // Track last selected option (A, B, C, D)
+	IncorrectChoices []string `json:"incorrect_choices"` // Track wrong answer patterns
 
 	// Lifecycle
 	State     CardState `json:"state"`
@@ -156,11 +156,11 @@ func (c *Card) RecordReview(quality ReviewQuality, timeSpent int, hintsUsed int)
 	c.TotalReviews++
 	c.UpdateAverageTime(timeSpent)
 	c.HintsUsed += hintsUsed
-	
+
 	if quality >= QualityGood {
 		c.SuccessCount++
 	}
-	
+
 	c.LastReviewed = time.Now()
 	c.UpdatedAt = time.Now()
 }
@@ -179,7 +179,7 @@ func (c *Card) RecordMCQAttempt(selected string, correct bool) {
 	if !correct && !containsString(c.IncorrectChoices, selected) {
 		c.IncorrectChoices = append(c.IncorrectChoices, selected)
 	}
-	
+
 	// Update MCQ accuracy
 	if c.TotalReviews > 0 {
 		c.MCQAccuracy = float64(c.SuccessCount) / float64(c.TotalReviews)

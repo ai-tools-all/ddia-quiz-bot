@@ -32,8 +32,8 @@ type SessionMetadata struct {
 	SessionID     string    `json:"session_id"`
 	User          string    `json:"user"`
 	Mode          string    `json:"mode"`
-	Topic         string    `json:"topic"`          // Topic identifier (e.g., "09-distributed-systems-gfs")
-	TopicDisplay  string    `json:"topic_display"`  // Human-readable topic name
+	Topic         string    `json:"topic"`         // Topic identifier (e.g., "09-distributed-systems-gfs")
+	TopicDisplay  string    `json:"topic_display"` // Human-readable topic name
 	Status        Status    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -53,9 +53,9 @@ type QuestionSummary struct {
 // Response represents a user's response to a question
 type Response struct {
 	QuestionID       string    `json:"question_id"`
-	QuestionType     string    `json:"question_type"`      // "subjective" or "mcq"
+	QuestionType     string    `json:"question_type"` // "subjective" or "mcq"
 	Answer           string    `json:"answer"`
-	IsCorrect        *bool     `json:"is_correct,omitempty"`   // For MCQ, nil for subjective
+	IsCorrect        *bool     `json:"is_correct,omitempty"`      // For MCQ, nil for subjective
 	SelectedOption   string    `json:"selected_option,omitempty"` // MCQ: A, B, C, D
 	UpdatedAt        time.Time `json:"updated_at"`
 	TimeSpentSeconds int       `json:"time_spent_seconds"`
@@ -239,9 +239,9 @@ func (m *Manager) UpdateResponse(session *Session, questionID string, answer str
 	// If not found, add new response
 	if !found {
 		session.Responses = append(session.Responses, Response{
-			QuestionID:      questionID,
-			Answer:          answer,
-			UpdatedAt:       time.Now(),
+			QuestionID:       questionID,
+			Answer:           answer,
+			UpdatedAt:        time.Now(),
 			TimeSpentSeconds: timeSpent,
 		})
 	}

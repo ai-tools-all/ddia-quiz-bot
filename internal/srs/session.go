@@ -90,17 +90,17 @@ func NewReviewSession(maxNew, maxReviews int, topics, levels []string) *ReviewSe
 func (s *ReviewSession) RecordCardReview(cardID string, quality ReviewQuality, timeSpent int, isNew bool) {
 	s.CardsReviewed = append(s.CardsReviewed, cardID)
 	s.TotalTime += timeSpent
-	
+
 	if isNew {
 		s.NewCardsSeen++
 	} else {
 		s.ReviewsDone++
 	}
-	
+
 	// Update quality average
 	count := len(s.CardsReviewed)
 	s.AvgQuality = (s.AvgQuality*float64(count-1) + float64(quality)) / float64(count)
-	
+
 	// Track correct/failed
 	if quality >= QualityGood {
 		s.CardsCorrect++

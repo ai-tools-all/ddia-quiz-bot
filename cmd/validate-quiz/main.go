@@ -101,8 +101,6 @@ func runValidation(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-
-
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

@@ -23,6 +23,6 @@ type OutputRecord struct {
 	Feedback      string  `csv:"feedback"`
 	QuestionTitle string  `csv:"question_title"`
 	Level         string  `csv:"level"`
-	Strengths     string  `csv:"strengths"`     // Comma-separated
+	Strengths     string  `csv:"strengths"`    // Comma-separated
 	Improvements  string  `csv:"improvements"` // Comma-separated
 }

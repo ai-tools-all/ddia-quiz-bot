@@ -36,7 +36,7 @@ func NewScanner(basePath string) *Scanner {
 // ScanQuestions scans the directory for markdown question files and builds an index
 func (s *Scanner) ScanQuestions() (models.QuestionIndex, error) {
 	index := make(models.QuestionIndex)
-	
+
 	err := filepath.Walk(s.basePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -73,14 +73,14 @@ func (s *Scanner) ScanQuestions() (models.QuestionIndex, error) {
 
 		// Add to index
 		if existing, exists := index[question.ID]; exists {
-			fmt.Fprintf(os.Stderr, "Warning: Duplicate question ID '%s' found in:\n  - %s\n  - %s\n", 
+			fmt.Fprintf(os.Stderr, "Warning: Duplicate question ID '%s' found in:\n  - %s\n  - %s\n",
 				question.ID, existing.FilePath, path)
 			return nil
 		}
 
 		question.FilePath = path
 		index[question.ID] = question
-		
+
 		return nil
 	})
 
@@ -103,7 +103,7 @@ func (s *Scanner) CountQuestions(index models.QuestionIndex) int {
 // GetQuestionsByLevel groups questions by difficulty level
 func (s *Scanner) GetQuestionsByLevel(index models.QuestionIndex) map[string][]*models.Question {
 	byLevel := make(map[string][]*models.Question)
-	
+
 	for _, question := range index {
 		level := question.Level
 		if level == "" {
@@ -111,7 +111,7 @@ func (s *Scanner) GetQuestionsByLevel(index models.QuestionIndex) map[string][]*
 		}
 		byLevel[level] = append(byLevel[level], question)
 	}
-	
+
 	return byLevel
 }
 
@@ -222,9 +222,9 @@ func (s *Scanner) DiscoverTopics(chaptersPath string) ([]TopicInfo, error) {
 func (s *Scanner) GetProgressiveQuestions(index models.QuestionIndex) []*models.Question {
 	// Define level order
 	levelOrder := []string{"L3", "L4", "L5", "L6", "L7"}
-	
+
 	var result []*models.Question
-	
+
 	for _, level := range levelOrder {
 		// Get all questions for this level
 		var levelQuestions []*models.Question
@@ -233,11 +233,11 @@ func (s *Scanner) GetProgressiveQuestions(index models.QuestionIndex) []*models.
 				levelQuestions = append(levelQuestions, question)
 			}
 		}
-		
+
 		// Sort by category (baseline before bar-raiser) and then by file path
 		sort.Slice(levelQuestions, func(i, j int) bool {
 			qi, qj := levelQuestions[i], levelQuestions[j]
-			
+
 			// First sort by category: baseline < bar-raiser
 			if qi.Category != qj.Category {
 				if qi.Category == "baseline" {
@@ -248,14 +248,14 @@ func (s *Scanner) GetProgressiveQuestions(index models.QuestionIndex) []*models.
 				}
 				return qi.Category < qj.Category
 			}
-			
+
 			// Then sort alphabetically by file path
 			return qi.FilePath < qj.FilePath
 		})
-		
+
 		result = append(result, levelQuestions...)
 	}
-	
+
 	return result
 }
 
@@ -266,7 +266,7 @@ func formatTopicName(name string) string {
 	if len(parts) < 2 {
 		return name
 	}
-	
+
 	// Convert to title case and replace dashes with spaces
 	displayName := strings.ReplaceAll(parts[1], "-", " ")
 	words := strings.Fields(displayName)
@@ -276,6 +276,6 @@ func formatTopicName(name string) string {
 			words[i] = strings.ToUpper(word[:1]) + word[1:]
 		}
 	}
-	
+
 	return strings.Join(words, " ")
 }

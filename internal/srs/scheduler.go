@@ -62,7 +62,7 @@ func (s *Scheduler) AddQuestions(questions []*models.Question) error {
 			s.cards[q.ID] = card
 		}
 	}
-	
+
 	return s.storage.SaveCards(s.cards)
 }
 
@@ -88,7 +88,7 @@ func (s *Scheduler) RecordReview(questionID string, quality ReviewQuality, timeS
 		card.IsOverdue(),
 		card.DaysOverdue(),
 	)
-	
+
 	// Update card
 	card.Interval = newInterval
 	card.Repetitions = newRepetitions
@@ -124,7 +124,7 @@ func (s *Scheduler) RecordReview(questionID string, quality ReviewQuality, timeS
 
 // GetDueCards returns cards that are due for review
 func (s *Scheduler) GetDueCards(maxNew, maxReviews int, topics, levels []string) []*Card {
-	
+
 	var overdue []*Card
 	var dueToday []*Card
 	var newCards []*Card
@@ -134,7 +134,7 @@ func (s *Scheduler) GetDueCards(maxNew, maxReviews int, topics, levels []string)
 		if len(topics) > 0 && !contains(topics, card.Topic) {
 			continue
 		}
-		
+
 		// Filter by levels if specified
 		if len(levels) > 0 && !contains(levels, card.Level) {
 			continue
@@ -304,7 +304,7 @@ func extractTopic(question *models.Question) string {
 	// Question ID format: topic-subjective-L3-001
 	// or simple: topic-001
 	// FilePath might contain: chapters/10-mit-6824-zookeeper/...
-	
+
 	// Try to extract from FilePath
 	if question.FilePath != "" {
 		// Look for pattern like "10-mit-6824-zookeeper"
@@ -319,7 +319,7 @@ func extractTopic(question *models.Question) string {
 			}
 		}
 	}
-	
+
 	// Fallback to extracting from ID
 	if question.ID != "" {
 		parts := splitString(question.ID, '-')
@@ -327,7 +327,7 @@ func extractTopic(question *models.Question) string {
 			return parts[0]
 		}
 	}
-	
+
 	return "unknown"
 }
 

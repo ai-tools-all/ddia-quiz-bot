@@ -220,16 +220,16 @@ What is linearizability?
 			wantErrors: 1,
 		},
 		{
-			name:     "non-markdown file",
-			filename: "test.txt",
-			content:  "This is not a markdown file",
-			wantValid: false,
+			name:       "non-markdown file",
+			filename:   "test.txt",
+			content:    "This is not a markdown file",
+			wantValid:  false,
 			wantErrors: 1,
 		},
 		{
-			name:     "readme file should be skipped",
-			filename: "README.md",
-			content:  "# README",
+			name:      "readme file should be skipped",
+			filename:  "README.md",
+			content:   "# README",
 			wantValid: true, // skipped files are considered valid
 		},
 		{

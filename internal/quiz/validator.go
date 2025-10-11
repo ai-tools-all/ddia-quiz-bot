@@ -19,10 +19,10 @@ type ValidationIssue struct {
 
 // FileValidation represents the validation result for a single file
 type FileValidation struct {
-	FilePath string              `json:"filepath"`
-	Valid    bool                `json:"valid"`
-	Issues   []ValidationIssue   `json:"issues"`
-	Question *models.Question    `json:"question,omitempty"`
+	FilePath string            `json:"filepath"`
+	Valid    bool              `json:"valid"`
+	Issues   []ValidationIssue `json:"issues"`
+	Question *models.Question  `json:"question,omitempty"`
 }
 
 // Validator validates quiz question files

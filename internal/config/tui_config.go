@@ -9,10 +9,10 @@ import (
 
 // TUIConfig represents the TUI application configuration
 type TUIConfig struct {
-	AutoSaveInterval  time.Duration `mapstructure:"auto_save_interval"`
-	SessionsDir       string        `mapstructure:"sessions_dir"`
-	ContentPath       string        `mapstructure:"content_path"`        // Deprecated: use ChaptersRootPath
-	ChaptersRootPath  string        `mapstructure:"chapters_root_path"`  // Path to chapters directory
+	AutoSaveInterval time.Duration `mapstructure:"auto_save_interval"`
+	SessionsDir      string        `mapstructure:"sessions_dir"`
+	ContentPath      string        `mapstructure:"content_path"`       // Deprecated: use ChaptersRootPath
+	ChaptersRootPath string        `mapstructure:"chapters_root_path"` // Path to chapters directory
 }
 
 // LoadTUIConfig loads TUI configuration from file

@@ -48,11 +48,11 @@ type ImprovedAppModel struct {
 	width             int
 	height            int
 	renderer          *glamour.TermRenderer
-	
+
 	// MCQ specific fields
 	mcqComponent    *components.MCQ
-	currentQType    string  // "subjective" or "mcq"
-	showExplanation bool    // Show MCQ explanation after answer
+	currentQType    string // "subjective" or "mcq"
+	showExplanation bool   // Show MCQ explanation after answer
 }
 
 // NewImprovedAppModel creates a new improved application model
@@ -278,7 +278,7 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentIndex = msg.newIndex
 		m.textarea.Reset()
 		m.questionStartTime = time.Now()
-		
+
 		if m.currentIndex >= len(m.questions) {
 			m.state = StateComplete
 		} else {
@@ -403,7 +403,7 @@ func (m ImprovedAppModel) renderTopicSelect() string {
 		if i >= 9 {
 			break // Limit to 9 topics for single-digit selection
 		}
-		
+
 		topicLine := fmt.Sprintf("  [%d] %s (%d questions)\n", i+1, topic.DisplayName, topic.TotalCount)
 		topicList.WriteString(topicStyle.Render(topicLine))
 	}
@@ -476,7 +476,7 @@ func (m ImprovedAppModel) renderQuestion() string {
 
 	// Get question text
 	questionText := question.MainQuestion
-	
+
 	// Debug: check if question text is empty
 	if questionText == "" {
 		questionText = "[ERROR: Question text is empty. ID: " + question.ID + "]"
@@ -504,7 +504,7 @@ func (m ImprovedAppModel) renderQuestion() string {
 	// Answer section - different for MCQ vs subjective
 	var answerSection string
 	var help string
-	
+
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		MarginTop(1)
@@ -516,10 +516,10 @@ func (m ImprovedAppModel) renderQuestion() string {
 			Bold(true).
 			MarginTop(1).
 			Render("Select Answer:")
-		
+
 		mcqView := m.mcqComponent.View()
 		answerSection = fmt.Sprintf("%s\n%s", answerLabel, mcqView)
-		
+
 		// MCQ-specific help text
 		if !m.mcqComponent.Submitted {
 			help = helpStyle.Render("↑↓: Navigate • Enter/Space: Submit • Ctrl+C: Quit")
@@ -533,10 +533,10 @@ func (m ImprovedAppModel) renderQuestion() string {
 			Bold(true).
 			MarginTop(1).
 			Render("Your Answer:")
-		
+
 		textareaView := m.textarea.View()
 		answerSection = fmt.Sprintf("%s\n%s", answerLabel, textareaView)
-		
+
 		// Subjective-specific help text
 		help = helpStyle.Render("Ctrl+N: Next • Ctrl+S: Save • Ctrl+C: Quit")
 	}
@@ -593,7 +593,7 @@ func (m *ImprovedAppModel) saveBeforeQuit() {
 		timeSpent := int(time.Since(m.questionStartTime).Seconds())
 		questionID := m.questions[m.currentIndex].ID
 		answer := strings.TrimSpace(m.textarea.Value())
-		
+
 		if answer != "" {
 			m.sessionManager.UpdateResponse(m.currentSession, questionID, answer, timeSpent)
 			m.sessionManager.SaveSession(m.currentSession)
@@ -713,21 +713,21 @@ func (m ImprovedAppModel) createNewSessionCmd() tea.Cmd {
 	return func() tea.Msg {
 		var sess *session.Session
 		var err error
-		
+
 		if m.selectedTopic != nil {
 			// Create session with topic information
 			sess, err = m.sessionManager.CreateSessionWithTopic(
-				m.user, 
-				"subjective", 
-				m.selectedTopic.Name, 
-				m.selectedTopic.DisplayName, 
+				m.user,
+				"subjective",
+				m.selectedTopic.Name,
+				m.selectedTopic.DisplayName,
 				m.questions,
 			)
 		} else {
 			// Legacy mode without topic
 			sess, err = m.sessionManager.CreateSession(m.user, "subjective", m.questions)
 		}
-		
+
 		return sessionCreatedMsg{session: sess, err: err}
 	}
 }
@@ -757,15 +757,15 @@ func (m *ImprovedAppModel) initializeQuestionComponent() {
 	if m.currentIndex >= len(m.questions) {
 		return
 	}
-	
+
 	question := m.questions[m.currentIndex]
 	m.currentQType = question.Type
-	
+
 	// Default to subjective if type not specified
 	if m.currentQType == "" {
 		m.currentQType = "subjective"
 	}
-	
+
 	if m.currentQType == "mcq" {
 		// Initialize MCQ component
 		m.mcqComponent = components.NewMCQ(question.Options, question.Answer)
@@ -774,7 +774,7 @@ func (m *ImprovedAppModel) initializeQuestionComponent() {
 	} else {
 		// Clear MCQ component for subjective questions
 		m.mcqComponent = nil
-		
+
 		// Load existing answer if resuming
 		if m.currentSession != nil {
 			existingResponse := m.sessionManager.GetResponse(m.currentSession, question.ID)
@@ -804,14 +804,14 @@ func (m ImprovedAppModel) saveMCQAnswerCmd() tea.Cmd {
 	return func() tea.Msg {
 		timeSpent := int(time.Since(m.questionStartTime).Seconds())
 		questionID := m.questions[m.currentIndex].ID
-		
+
 		if m.mcqComponent == nil {
 			return answerSavedMsg{err: fmt.Errorf("MCQ component not initialized")}
 		}
-		
+
 		selectedLetter := m.mcqComponent.GetSelectedLetter()
 		isCorrect := m.mcqComponent.IsCorrect()
-		
+
 		// Create response with MCQ-specific data
 		response := &session.Response{
 			QuestionID:       questionID,
@@ -822,11 +822,11 @@ func (m ImprovedAppModel) saveMCQAnswerCmd() tea.Cmd {
 			UpdatedAt:        time.Now(),
 			TimeSpentSeconds: timeSpent,
 		}
-		
+
 		// Add response to session
 		m.currentSession.Responses = append(m.currentSession.Responses, *response)
 		m.currentSession.Session.Answered = len(m.currentSession.Responses)
-		
+
 		err := m.sessionManager.SaveSession(m.currentSession)
 		return answerSavedMsg{err: err}
 	}

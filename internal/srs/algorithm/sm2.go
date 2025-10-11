@@ -37,7 +37,7 @@ func (s *SM2Plus) CalculateInterval(
 ) (newInterval int, newRepetitions int, newEaseFactor float64) {
 	// Adjust quality based on context
 	adjustedQuality := s.adjustQuality(quality, timeSpent, hintsUsed)
-	
+
 	// Failed review - reset to learning
 	if adjustedQuality < 3 { // Less than "Good"
 		newRepetitions = 0
@@ -45,11 +45,11 @@ func (s *SM2Plus) CalculateInterval(
 		newInterval = s.config.MinInterval
 		return
 	}
-	
+
 	// Successful review
 	newRepetitions = repetitions + 1
 	newEaseFactor = s.updateEaseFactor(easeFactor, adjustedQuality)
-	
+
 	// Calculate interval
 	if newRepetitions <= len(s.config.NewCardIntervals) {
 		// Use graduated intervals for new cards
@@ -57,18 +57,18 @@ func (s *SM2Plus) CalculateInterval(
 	} else {
 		// Standard SM-2 formula
 		newInterval = int(float64(interval) * newEaseFactor)
-		
+
 		// Apply decay for mature cards
 		if s.config.DecayEnabled && newInterval >= s.config.DecayThreshold {
 			newInterval = int(float64(newInterval) * s.config.DecayFactor)
 		}
 	}
-	
+
 	// Apply overdue adjustment
 	if isOverdue {
 		newInterval = s.applyOverdueAdjustment(interval, daysOverdue, newInterval)
 	}
-	
+
 	// Clamp to limits
 	if newInterval < s.config.MinInterval {
 		newInterval = s.config.MinInterval
@@ -76,19 +76,19 @@ func (s *SM2Plus) CalculateInterval(
 	if newInterval > s.config.MaxInterval {
 		newInterval = s.config.MaxInterval
 	}
-	
+
 	return
 }
 
 // adjustQuality modifies quality based on hints and timing
 func (s *SM2Plus) adjustQuality(quality int, timeSpent int, hintsUsed int) int {
 	adjusted := quality
-	
+
 	// Hint penalty - each hint reduces quality by 1
 	if hintsUsed > 0 {
 		adjusted -= s.config.HintPenalty * hintsUsed
 	}
-	
+
 	// Time-based adjustment (only for successful answers)
 	if quality >= 3 { // Quality Good or better
 		// Very fast answer = easier than thought
@@ -100,7 +100,7 @@ func (s *SM2Plus) adjustQuality(quality int, timeSpent int, hintsUsed int) int {
 			adjusted--
 		}
 	}
-	
+
 	// Clamp to valid range (0-5)
 	if adjusted < 0 {
 		adjusted = 0
@@ -108,7 +108,7 @@ func (s *SM2Plus) adjustQuality(quality int, timeSpent int, hintsUsed int) int {
 	if adjusted > 5 {
 		adjusted = 5
 	}
-	
+
 	return adjusted
 }
 
@@ -117,12 +117,12 @@ func (s *SM2Plus) updateEaseFactor(currentEase float64, quality int) float64 {
 	// SM-2 formula: EF' = EF + (0.1 - (5-q) * (0.08 + (5-q) * 0.02))
 	q := float64(quality)
 	newEase := currentEase + (0.1 - (5-q)*(0.08+(5-q)*0.02))
-	
+
 	// Floor at minimum ease
 	if newEase < s.config.MinEase {
 		newEase = s.config.MinEase
 	}
-	
+
 	return newEase
 }
 
@@ -131,20 +131,20 @@ func (s *SM2Plus) applyOverdueAdjustment(previousInterval int, daysOverdue int, 
 	if daysOverdue == 0 {
 		return newInterval
 	}
-	
+
 	// Calculate reduction factor based on how overdue
 	// More overdue = bigger reduction (up to max)
 	reductionFactor := math.Min(
 		s.config.OverdueReductionMax,
 		float64(daysOverdue)/float64(previousInterval)*0.5,
 	)
-	
+
 	reducedInterval := int(float64(newInterval) * (1.0 - reductionFactor))
-	
+
 	// Ensure minimum interval
 	if reducedInterval < s.config.MinInterval {
 		reducedInterval = s.config.MinInterval
 	}
-	
+
 	return reducedInterval
 }

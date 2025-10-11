@@ -156,10 +156,10 @@ func (m *MCQ) View() string {
 	// Show feedback after submission
 	if m.Submitted && m.ShowFeedback {
 		b.WriteString("\n")
-		
+
 		var feedbackStyle lipgloss.Style
 		var feedbackText string
-		
+
 		if m.IsCorrect() {
 			feedbackStyle = correctStyle.Copy().Padding(1, 2)
 			feedbackText = "✓ Correct!"
@@ -167,7 +167,7 @@ func (m *MCQ) View() string {
 			feedbackStyle = incorrectStyle.Copy().Padding(1, 2)
 			feedbackText = "✗ Incorrect"
 		}
-		
+
 		b.WriteString(feedbackStyle.Render(feedbackText))
 		b.WriteString("\n")
 
@@ -177,7 +177,7 @@ func (m *MCQ) View() string {
 				Foreground(lipgloss.Color("245")).
 				Padding(1, 2).
 				Width(80)
-			
+
 			b.WriteString("\n")
 			b.WriteString(explanationStyle.Render("Explanation:\n" + m.Explanation))
 		}

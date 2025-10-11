@@ -160,7 +160,7 @@ func (s *Storage) LoadSession(sessionID string) (*ReviewSession, error) {
 // LoadTodaysSessions loads all sessions from today
 func (s *Storage) LoadTodaysSessions() ([]*ReviewSession, error) {
 	today := time.Now().Format("20060102")
-	
+
 	sessionsDir := filepath.Join(s.dataDir, "sessions")
 	entries, err := os.ReadDir(sessionsDir)
 	if err != nil {
@@ -175,7 +175,7 @@ func (s *Storage) LoadTodaysSessions() ([]*ReviewSession, error) {
 		if entry.IsDir() {
 			continue
 		}
-		
+
 		// Check if session is from today
 		if len(entry.Name()) >= 8 && entry.Name()[:8] == today {
 			session, err := s.LoadSession(entry.Name()[:len(entry.Name())-5]) // remove .json
@@ -201,9 +201,9 @@ func (s *Storage) Backup() error {
 
 	timestamp := time.Now().Format("20060102-150405")
 	backupFile := filepath.Join(backupDir, fmt.Sprintf("cards-%s.json.bak", timestamp))
-	
+
 	cardsFile := filepath.Join(s.dataDir, "cards.json")
-	
+
 	// Check if cards file exists
 	if _, err := os.Stat(cardsFile); os.IsNotExist(err) {
 		return nil // Nothing to backup
@@ -242,12 +242,12 @@ func (s *Storage) cleanOldBackups(keepDays int) error {
 		if entry.IsDir() {
 			continue
 		}
-		
+
 		info, err := entry.Info()
 		if err != nil {
 			continue
 		}
-		
+
 		if info.ModTime().Before(cutoff) {
 			filepath := filepath.Join(backupDir, entry.Name())
 			os.Remove(filepath) // Ignore errors
@@ -265,7 +265,7 @@ func (s *Storage) GetDataDir() string {
 // writeJSON writes data as JSON to a file
 func (s *Storage) writeJSON(filename string, data interface{}) error {
 	filepath := filepath.Join(s.dataDir, filename)
-	
+
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
@@ -288,14 +288,14 @@ func (s *Storage) writeJSON(filename string, data interface{}) error {
 // readJSON reads and unmarshals JSON from a file
 func (s *Storage) readJSON(filename string, data interface{}) error {
 	var filePath string
-	
+
 	// If filename is already an absolute path, use it
 	if !filepath.IsAbs(filename) {
 		filePath = filepath.Join(s.dataDir, filename)
 	} else {
 		filePath = filename
 	}
-	
+
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -349,7 +349,7 @@ func CalculateStatistics(cards map[string]*Card, sessions []*ReviewSession) *Sta
 			} else if card.DueDate.Before(tomorrow.Add(24 * time.Hour)) {
 				stats.DueTomorrow++
 			}
-			
+
 			if card.DueDate.Before(weekEnd) {
 				stats.DueThisWeek++
 			}
@@ -365,7 +365,7 @@ func CalculateStatistics(cards map[string]*Card, sessions []*ReviewSession) *Sta
 				totalInterval: 0,
 			}
 		}
-		
+
 		td := topicDataMap[card.Topic]
 		td.totalCards++
 		if card.State == CardStateMature {
@@ -404,15 +404,15 @@ func CalculateStatistics(cards map[string]*Card, sessions []*ReviewSession) *Sta
 			TotalCards:    td.totalCards,
 			MasteredCards: td.matureCards,
 		}
-		
+
 		if td.totalReviews > 0 {
 			topicStat.RetentionRate = float64(td.successCount) / float64(td.totalReviews)
 		}
-		
+
 		if td.totalCards > 0 {
 			topicStat.AvgInterval = td.totalInterval / td.totalCards
 		}
-		
+
 		stats.TopicStats[topic] = topicStat
 	}
 
@@ -428,12 +428,12 @@ func calculateStreak(sessions []*ReviewSession) int {
 	// Sort sessions by date (newest first)
 	sortedDates := make([]string, 0)
 	dateMap := make(map[string]bool)
-	
+
 	for _, session := range sessions {
 		date := session.StartTime.Format("20060102")
 		dateMap[date] = true
 	}
-	
+
 	for date := range dateMap {
 		sortedDates = append(sortedDates, date)
 	}
@@ -441,7 +441,7 @@ func calculateStreak(sessions []*ReviewSession) int {
 
 	// Count consecutive days from today
 	streak := 0
-	
+
 	for i, date := range sortedDates {
 		expectedDate := time.Now().AddDate(0, 0, -i).Format("20060102")
 		if date != expectedDate {
@@ -465,7 +465,7 @@ func calculateLongestStreak(sessions []*ReviewSession) int {
 		date := session.StartTime.Format("20060102")
 		dateMap[date] = true
 	}
-	
+
 	// Convert to sorted slice
 	dates := make([]string, 0, len(dateMap))
 	for date := range dateMap {
@@ -476,13 +476,13 @@ func calculateLongestStreak(sessions []*ReviewSession) int {
 	// Find longest consecutive sequence
 	maxStreak := 1
 	currentStreak := 1
-	
+
 	for i := 1; i < len(dates); i++ {
 		prevDate, _ := time.Parse("20060102", dates[i-1])
 		currDate, _ := time.Parse("20060102", dates[i])
-		
+
 		daysDiff := int(currDate.Sub(prevDate).Hours() / 24)
-		
+
 		if daysDiff == 1 {
 			currentStreak++
 			if currentStreak > maxStreak {

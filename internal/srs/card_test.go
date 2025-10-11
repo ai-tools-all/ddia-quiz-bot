@@ -31,7 +31,7 @@ func TestCardIsNew(t *testing.T) {
 
 func TestCardIsDue(t *testing.T) {
 	card := NewCard("test-001", "test", "L3", "baseline")
-	
+
 	// New cards are due immediately
 	assert.True(t, card.IsDue())
 
@@ -48,7 +48,7 @@ func TestCardIsOverdue(t *testing.T) {
 	card := NewCard("test-001", "test", "L3", "baseline")
 	card.State = CardStateReview
 	card.LastReviewed = time.Now().Add(-10 * 24 * time.Hour)
-	
+
 	// Not overdue if new
 	card.State = CardStateNew
 	assert.False(t, card.IsOverdue())
@@ -66,7 +66,7 @@ func TestCardIsOverdue(t *testing.T) {
 func TestCardDaysOverdue(t *testing.T) {
 	card := NewCard("test-001", "test", "L3", "baseline")
 	card.State = CardStateReview
-	
+
 	// 3 days overdue
 	card.DueDate = time.Now().Add(-3 * 24 * time.Hour)
 	days := card.DaysOverdue()

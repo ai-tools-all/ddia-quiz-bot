@@ -44,10 +44,10 @@ type OutputConfig struct {
 // Load loads configuration from file and environment
 func Load(configPath string) (*Config, error) {
 	v := viper.New()
-	
+
 	// Set defaults
 	setDefaults(v)
-	
+
 	// Set config file if provided
 	if configPath != "" {
 		v.SetConfigFile(configPath)
@@ -115,10 +115,10 @@ func setDefaults(v *viper.Viper) {
 func bindEnvironmentVariables(v *viper.Viper) {
 	// Allow API key from environment
 	v.BindEnv("ai.api_key", "OPENAI_API_KEY", "AI_API_KEY", "QUIZ_EVAL_API_KEY")
-	
+
 	// Allow provider override
 	v.BindEnv("ai.provider", "AI_PROVIDER", "QUIZ_EVAL_PROVIDER")
-	
+
 	// Allow model override
 	v.BindEnv("ai.model", "AI_MODEL", "QUIZ_EVAL_MODEL")
 }
@@ -134,7 +134,7 @@ func validateConfig(cfg *Config) error {
 				break
 			}
 		}
-		
+
 		if cfg.AI.APIKey == "" {
 			return fmt.Errorf("API key is required for provider %s", cfg.AI.Provider)
 		}
@@ -147,7 +147,7 @@ func validateConfig(cfg *Config) error {
 		"gemini":    true,
 		"ollama":    true,
 	}
-	
+
 	if !validProviders[cfg.AI.Provider] {
 		return fmt.Errorf("unsupported AI provider: %s", cfg.AI.Provider)
 	}
@@ -158,7 +158,7 @@ func validateConfig(cfg *Config) error {
 		"json":     true,
 		"markdown": true,
 	}
-	
+
 	if !validFormats[cfg.Output.Format] {
 		return fmt.Errorf("unsupported output format: %s", cfg.Output.Format)
 	}
@@ -167,7 +167,7 @@ func validateConfig(cfg *Config) error {
 	if cfg.Evaluation.ParallelWorkers < 1 {
 		cfg.Evaluation.ParallelWorkers = 1
 	}
-	
+
 	if cfg.AI.MaxTokens < 100 {
 		cfg.AI.MaxTokens = 1500
 	}
