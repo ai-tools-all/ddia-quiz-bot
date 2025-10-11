@@ -6,5 +6,8 @@ auto_save_interval = 30
 # Directory where session files are stored
 sessions_dir = "sessions"
 
-# Path to the content directory for subjective questions
-content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"
+# Path to the chapters root directory (NEW: enables topic selection)
+chapters_root_path = "ddia-quiz-bot/content/chapters"
+
+# Deprecated: Path to the content directory for subjective questions (single topic mode)
+# content_path = "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective"

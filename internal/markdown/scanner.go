@@ -4,10 +4,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/abhishek/ddia-clicker/internal/models"
 )
+
+// TopicInfo represents a discovered topic with metadata
+type TopicInfo struct {
+	Name        string         // e.g., "09-distributed-systems-gfs"
+	DisplayName string         // e.g., "GFS & Distributed Systems"
+	Path        string         // absolute path to topic directory
+	LevelCounts map[string]int // question count per level (L3, L4, etc.)
+	TotalCount  int            // total question count
+}
 
 // Scanner recursively scans directories for markdown files
 type Scanner struct {
@@ -103,4 +113,169 @@ func (s *Scanner) GetQuestionsByLevel(index models.QuestionIndex) map[string][]*
 	}
 	
 	return byLevel
+}
+
+// DiscoverTopics scans the chapters directory and returns available topics
+func (s *Scanner) DiscoverTopics(chaptersPath string) ([]TopicInfo, error) {
+	entries, err := os.ReadDir(chaptersPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read chapters directory: %w", err)
+	}
+
+	var topics []TopicInfo
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		topicName := entry.Name()
+		topicPath := filepath.Join(chaptersPath, topicName)
+		subjectivePath := filepath.Join(topicPath, "subjective")
+
+		// Check if subjective directory exists
+		if _, err := os.Stat(subjectivePath); os.IsNotExist(err) {
+			continue
+		}
+
+		// Count questions by level
+		levelCounts := make(map[string]int)
+		totalCount := 0
+
+		// Scan the subjective directory
+		levelDirs, err := os.ReadDir(subjectivePath)
+		if err != nil {
+			continue
+		}
+
+		for _, levelDir := range levelDirs {
+			if !levelDir.IsDir() {
+				continue
+			}
+
+			levelName := levelDir.Name()
+			// Extract level (L3, L4, etc.)
+			var level string
+			if strings.HasPrefix(levelName, "L") {
+				// Extract L3, L4, etc. from "L3-baseline" or "L3-bar-raiser"
+				parts := strings.Split(levelName, "-")
+				if len(parts) > 0 {
+					level = parts[0]
+				}
+			}
+
+			if level == "" {
+				continue
+			}
+
+			// Count markdown files in this level directory
+			levelPath := filepath.Join(subjectivePath, levelName)
+			files, err := os.ReadDir(levelPath)
+			if err != nil {
+				continue
+			}
+
+			count := 0
+			for _, file := range files {
+				if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".md") {
+					filename := strings.ToLower(file.Name())
+					if filename != "readme.md" && filename != "index.md" && filename != "guidelines.md" {
+						count++
+					}
+				}
+			}
+
+			levelCounts[level] += count
+			totalCount += count
+		}
+
+		if totalCount == 0 {
+			continue
+		}
+
+		// Create display name from topic name
+		displayName := formatTopicName(topicName)
+
+		topics = append(topics, TopicInfo{
+			Name:        topicName,
+			DisplayName: displayName,
+			Path:        subjectivePath,
+			LevelCounts: levelCounts,
+			TotalCount:  totalCount,
+		})
+	}
+
+	if len(topics) == 0 {
+		return nil, fmt.Errorf("no valid topics found in %s", chaptersPath)
+	}
+
+	// Sort topics by name for consistent ordering
+	sort.Slice(topics, func(i, j int) bool {
+		return topics[i].Name < topics[j].Name
+	})
+
+	return topics, nil
+}
+
+// GetProgressiveQuestions returns questions in progressive order: L3 -> L4 -> L5 -> L6 -> L7
+// Within each level: baseline before bar-raiser, then alphabetically
+func (s *Scanner) GetProgressiveQuestions(index models.QuestionIndex) []*models.Question {
+	// Define level order
+	levelOrder := []string{"L3", "L4", "L5", "L6", "L7"}
+	
+	var result []*models.Question
+	
+	for _, level := range levelOrder {
+		// Get all questions for this level
+		var levelQuestions []*models.Question
+		for _, question := range index {
+			if question.Level == level {
+				levelQuestions = append(levelQuestions, question)
+			}
+		}
+		
+		// Sort by category (baseline before bar-raiser) and then by file path
+		sort.Slice(levelQuestions, func(i, j int) bool {
+			qi, qj := levelQuestions[i], levelQuestions[j]
+			
+			// First sort by category: baseline < bar-raiser
+			if qi.Category != qj.Category {
+				if qi.Category == "baseline" {
+					return true
+				}
+				if qj.Category == "baseline" {
+					return false
+				}
+				return qi.Category < qj.Category
+			}
+			
+			// Then sort alphabetically by file path
+			return qi.FilePath < qj.FilePath
+		})
+		
+		result = append(result, levelQuestions...)
+	}
+	
+	return result
+}
+
+// formatTopicName converts a topic directory name to a display name
+func formatTopicName(name string) string {
+	// Remove leading numbers and dashes (e.g., "03-storage-and-retrieval" -> "storage-and-retrieval")
+	parts := strings.SplitN(name, "-", 2)
+	if len(parts) < 2 {
+		return name
+	}
+	
+	// Convert to title case and replace dashes with spaces
+	displayName := strings.ReplaceAll(parts[1], "-", " ")
+	words := strings.Fields(displayName)
+	for i, word := range words {
+		// Capitalize first letter, keep rest as is for acronyms
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(word[:1]) + word[1:]
+		}
+	}
+	
+	return strings.Join(words, " ")
 }

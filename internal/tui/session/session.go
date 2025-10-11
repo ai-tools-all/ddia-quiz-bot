@@ -32,6 +32,8 @@ type SessionMetadata struct {
 	SessionID     string    `json:"session_id"`
 	User          string    `json:"user"`
 	Mode          string    `json:"mode"`
+	Topic         string    `json:"topic"`          // Topic identifier (e.g., "09-distributed-systems-gfs")
+	TopicDisplay  string    `json:"topic_display"`  // Human-readable topic name
 	Status        Status    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -70,14 +72,24 @@ func NewManager(baseDir string) *Manager {
 
 // CreateSession creates a new session for a user
 func (m *Manager) CreateSession(user string, mode string, questions []*models.Question) (*Session, error) {
+	return m.CreateSessionWithTopic(user, mode, "", "", questions)
+}
+
+// CreateSessionWithTopic creates a new session for a user with topic information
+func (m *Manager) CreateSessionWithTopic(user string, mode string, topic string, topicDisplay string, questions []*models.Question) (*Session, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	sessionID := fmt.Sprintf("%s-%s-%s", timestamp, user, mode)
+	if topic != "" {
+		sessionID = fmt.Sprintf("%s-%s-%s-%s", timestamp, user, mode, topic)
+	}
 
 	session := &Session{
 		Session: SessionMetadata{
 			SessionID:     sessionID,
 			User:          user,
 			Mode:          mode,
+			Topic:         topic,
+			TopicDisplay:  topicDisplay,
 			Status:        StatusInProgress,
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
@@ -160,6 +172,11 @@ func (m *Manager) LoadSession(user string, mode string, sessionID string) (*Sess
 
 // ListIncompleteSessions lists all incomplete sessions for a user and mode
 func (m *Manager) ListIncompleteSessions(user string, mode string) ([]*Session, error) {
+	return m.ListIncompleteSessionsForTopic(user, mode, "")
+}
+
+// ListIncompleteSessionsForTopic lists incomplete sessions filtered by topic
+func (m *Manager) ListIncompleteSessionsForTopic(user string, mode string, topic string) ([]*Session, error) {
 	sessionDir := filepath.Join(m.baseDir, user, mode)
 
 	// Check if directory exists
@@ -186,8 +203,11 @@ func (m *Manager) ListIncompleteSessions(user string, mode string) ([]*Session, 
 			continue
 		}
 
+		// Filter by status and optionally by topic
 		if session.Session.Status == StatusInProgress {
-			sessions = append(sessions, session)
+			if topic == "" || session.Session.Topic == topic {
+				sessions = append(sessions, session)
+			}
 		}
 	}
 
