@@ -51,6 +51,17 @@ else
     exit 1
 fi
 
+# Build md-toc
+log "Building md-toc..."
+go build -o "$BUILD_DIR/md-toc" ./cmd/md-toc
+if [ -f "$BUILD_DIR/md-toc" ]; then
+    size=$(ls -lh "$BUILD_DIR/md-toc" | awk '{print $5}')
+    success "Built md-toc ($size)"
+else
+    echo "Failed to build md-toc"
+    exit 1
+fi
+
 echo ""
 log "Build artifacts:"
 ls -lh "$BUILD_DIR"
