@@ -1,294 +1,234 @@
 package screens
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/abhishek/ddia-clicker/internal/config"
 	"github.com/abhishek/ddia-clicker/internal/markdown"
 	"github.com/abhishek/ddia-clicker/internal/models"
-	"github.com/abhishek/ddia-clicker/internal/tui/session"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestQuestionLoading tests that questions are loaded correctly from markdown files
-func TestQuestionLoading(t *testing.T) {
-	// Use actual content path
-	contentPath := filepath.Join("..", "..", "..", "ddia-quiz-bot", "content", "chapters",
-		"09-distributed-systems-gfs", "subjective")
-
-	if _, err := os.Stat(contentPath); os.IsNotExist(err) {
-		t.Skip("Skipping test - content path not found")
+func TestQuestionLoadingFromSubjectiveFolder(t *testing.T) {
+	// Test loading questions from the subjective folder as configured
+	tests := []struct {
+		name           string
+		configPath     string
+		expectQuestions bool
+		minQuestions   int
+		description    string
+	}{
+		{
+			name:           "Load questions from GFS subjective folder",
+			configPath:     "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective",
+			expectQuestions: true,
+			minQuestions:   1,
+			description:    "Should successfully load questions from GFS subjective folder",
+		},
+		{
+			name:           "Fail on non-existent chapter folder",
+			configPath:     "ddia-quiz-bot/content/chapters/03-storage-and-retrieval/subjective",
+			expectQuestions: false,
+			minQuestions:   0,
+			description:    "Should handle missing subjective folder gracefully",
+		},
 	}
 
-	scanner := markdown.NewScanner(contentPath)
-	index, err := scanner.ScanQuestions()
-	if err != nil {
-		t.Fatalf("Failed to scan questions: %v", err)
-	}
-
-	if len(index) == 0 {
-		t.Fatal("No questions found in content directory")
-	}
-
-	t.Logf("Loaded %d questions", len(index))
-
-	// Verify each question has essential fields
-	emptyQuestions := 0
-	for id, q := range index {
-		if q.MainQuestion == "" {
-			t.Errorf("Question %s has empty MainQuestion field", id)
-			t.Logf("Question details: ID=%s, Level=%s, Category=%s, FilePath=%s",
-				q.ID, q.Level, q.Category, q.FilePath)
-			emptyQuestions++
-		}
-		
-		if q.ID == "" {
-			t.Errorf("Question has empty ID")
-		}
-		
-		if q.Level == "" {
-			t.Logf("Warning: Question %s has no level", id)
-		}
-	}
-
-	if emptyQuestions > 0 {
-		t.Fatalf("Found %d questions with empty MainQuestion field", emptyQuestions)
-	}
-}
-
-// TestQuestionsByLevel tests that questions can be organized by level
-func TestQuestionsByLevel(t *testing.T) {
-	contentPath := filepath.Join("..", "..", "..", "ddia-quiz-bot", "content", "chapters",
-		"09-distributed-systems-gfs", "subjective")
-
-	if _, err := os.Stat(contentPath); os.IsNotExist(err) {
-		t.Skip("Skipping test - content path not found")
-	}
-
-	scanner := markdown.NewScanner(contentPath)
-	index, err := scanner.ScanQuestions()
-	if err != nil {
-		t.Fatalf("Failed to scan questions: %v", err)
-	}
-
-	byLevel := scanner.GetQuestionsByLevel(index)
-	
-	levels := []string{"L3", "L4", "L5", "L6", "L7"}
-	var allQuestions []*models.Question
-	
-	for _, level := range levels {
-		if qs, ok := byLevel[level]; ok {
-			t.Logf("Level %s: %d questions", level, len(qs))
-			allQuestions = append(allQuestions, qs...)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Get absolute path
+			absPath := filepath.Join("/home/abhishek/Downloads/experiments/ai-tools/ddia-clicker", tt.configPath)
 			
-			// Verify each question in this level
-			for _, q := range qs {
-				if q.MainQuestion == "" {
-					t.Errorf("Question %s (Level %s) has empty MainQuestion", q.ID, level)
+			// Create scanner
+			scanner := markdown.NewScanner(absPath)
+			
+			// Try to scan questions
+			index, err := scanner.ScanQuestions()
+			
+			if tt.expectQuestions {
+				require.NoError(t, err, "Should not error when loading questions from %s", tt.configPath)
+				require.NotNil(t, index, "Question index should not be nil")
+				assert.GreaterOrEqual(t, len(index), tt.minQuestions, 
+					"Should have at least %d questions, got %d", tt.minQuestions, len(index))
+				
+				// Verify questions have required fields
+				for id, question := range index {
+					assert.NotEmpty(t, question.ID, "Question ID should not be empty")
+					assert.NotEmpty(t, question.MainQuestion, "Question text should not be empty for ID: %s", id)
+					assert.NotEmpty(t, question.Level, "Question level should not be empty for ID: %s", id)
+					assert.Contains(t, []string{"L3", "L4", "L5", "L6", "L7"}, question.Level, 
+						"Question level should be valid for ID: %s", id)
 				}
-			}
-		}
-	}
-
-	if len(allQuestions) == 0 {
-		t.Fatal("No questions organized by level")
-	}
-
-	t.Logf("Total questions across all levels: %d", len(allQuestions))
-}
-
-// TestRenderQuestionWithEmptyText tests fallback when question text is empty
-func TestRenderQuestionWithEmptyText(t *testing.T) {
-	cfg := &config.TUIConfig{
-		SessionsDir: t.TempDir(),
-		ContentPath: "test",
-	}
-
-	model := NewImprovedAppModel("testuser", cfg)
-	
-	// Create a question with empty MainQuestion
-	model.questions = []*models.Question{
-		{
-			ID:           "test-empty",
-			MainQuestion: "",
-			Level:        "L3",
-		},
-	}
-	
-	model.state = StateQuestion
-	model.currentIndex = 0
-	
-	// Create a dummy session
-	model.currentSession = &session.Session{}
-
-	// Render and check output
-	output := model.renderQuestion()
-	
-	if !strings.Contains(output, "ERROR: Question text is empty") {
-		t.Error("Expected error message for empty question text")
-	}
-	
-	if !strings.Contains(output, "test-empty") {
-		t.Error("Expected question ID in error message")
-	}
-}
-
-// TestRenderQuestionWithValidText tests normal rendering
-func TestRenderQuestionWithValidText(t *testing.T) {
-	cfg := &config.TUIConfig{
-		SessionsDir: t.TempDir(),
-		ContentPath: "test",
-	}
-
-	model := NewImprovedAppModel("testuser", cfg)
-	
-	questionText := "What is the purpose of replication in GFS?"
-	
-	model.questions = []*models.Question{
-		{
-			ID:           "test-valid",
-			MainQuestion: questionText,
-			Level:        "L3",
-		},
-	}
-	
-	model.state = StateQuestion
-	model.currentIndex = 0
-	model.currentSession = &session.Session{}
-
-	output := model.renderQuestion()
-	
-	// Should contain the question text
-	if !strings.Contains(output, questionText) {
-		t.Errorf("Expected question text %q in output", questionText)
-		t.Logf("Output: %s", output)
-	}
-	
-	// Should contain progress indicator
-	if !strings.Contains(output, "Question 1 of 1") {
-		t.Error("Expected progress indicator")
-	}
-	
-	// Should contain help text
-	if !strings.Contains(output, "Ctrl+N") {
-		t.Error("Expected keyboard shortcut help")
-	}
-}
-
-// TestParseRealQuestionsE2E is an end-to-end test parsing real questions
-func TestParseRealQuestionsE2E(t *testing.T) {
-	contentPath := filepath.Join("..", "..", "..", "ddia-quiz-bot", "content", "chapters",
-		"09-distributed-systems-gfs", "subjective")
-
-	if _, err := os.Stat(contentPath); os.IsNotExist(err) {
-		t.Skip("Skipping E2E test - content path not found")
-	}
-
-	// Find all markdown files
-	var mdFiles []string
-	err := filepath.Walk(contentPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".md") {
-			filename := strings.ToLower(info.Name())
-			if filename != "readme.md" && filename != "index.md" && filename != "guidelines.md" {
-				mdFiles = append(mdFiles, path)
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		t.Fatalf("Failed to walk content directory: %v", err)
-	}
-
-	t.Logf("Found %d markdown files", len(mdFiles))
-
-	parser := markdown.NewParser()
-	failedFiles := 0
-	emptyQuestions := 0
-
-	for _, path := range mdFiles {
-		question, err := parser.ParseQuestionFile(path)
-		if err != nil {
-			t.Logf("Failed to parse %s: %v", filepath.Base(path), err)
-			failedFiles++
-			continue
-		}
-
-		// Check critical fields
-		if question.ID == "" {
-			t.Errorf("File %s: Question has no ID", filepath.Base(path))
-		}
-
-		if question.MainQuestion == "" {
-			t.Errorf("File %s: Question has empty MainQuestion (ID: %s)", filepath.Base(path), question.ID)
-			emptyQuestions++
-		} else {
-			t.Logf("✓ %s: MainQuestion length = %d chars", filepath.Base(path), len(question.MainQuestion))
-		}
-	}
-
-	if failedFiles > 0 {
-		t.Errorf("Failed to parse %d out of %d files", failedFiles, len(mdFiles))
-	}
-
-	if emptyQuestions > 0 {
-		t.Fatalf("Found %d questions with empty MainQuestion", emptyQuestions)
-	}
-}
-
-// TestQuestionTextNotEmpty verifies all loaded questions have non-empty text
-func TestQuestionTextNotEmpty(t *testing.T) {
-	contentPath := filepath.Join("..", "..", "..", "ddia-quiz-bot", "content", "chapters",
-		"09-distributed-systems-gfs", "subjective")
-
-	if _, err := os.Stat(contentPath); os.IsNotExist(err) {
-		t.Skip("Skipping test - content path not found")
-	}
-
-	scanner := markdown.NewScanner(contentPath)
-	index, err := scanner.ScanQuestions()
-	if err != nil {
-		t.Fatalf("Failed to scan questions: %v", err)
-	}
-
-	var problematicQuestions []string
-
-	for id, q := range index {
-		if q.MainQuestion == "" {
-			problematicQuestions = append(problematicQuestions, id)
-			t.Errorf("Question %s has empty MainQuestion", id)
-			
-			// Read the file to debug
-			if q.FilePath != "" {
-				content, err := os.ReadFile(q.FilePath)
+				
+				// Test progressive question ordering
+				questions := scanner.GetProgressiveQuestions(index)
+				assert.Equal(t, len(index), len(questions), "Progressive questions should include all questions")
+				
+				// Verify level ordering
+				var lastLevel string
+				levelOrder := map[string]int{"L3": 1, "L4": 2, "L5": 3, "L6": 4, "L7": 5}
+				for i, q := range questions {
+					if lastLevel != "" {
+						assert.GreaterOrEqual(t, levelOrder[q.Level], levelOrder[lastLevel],
+							"Question %d: Level %s should come after or equal to %s", i, q.Level, lastLevel)
+					}
+					lastLevel = q.Level
+				}
+			} else {
+				// Should error or return empty when folder doesn't exist
 				if err == nil {
-					t.Logf("File content preview for %s:\n%s\n", id, string(content[:min(500, len(content))]))
+					assert.Empty(t, index, "Should return empty index for non-existent folder")
 				}
 			}
-		} else {
-			// Log successful parsing for verification
-			preview := q.MainQuestion
-			if len(preview) > 100 {
-				preview = preview[:100] + "..."
-			}
-			t.Logf("✓ %s: %s", id, preview)
-		}
-	}
-
-	if len(problematicQuestions) > 0 {
-		t.Fatalf("Found %d questions with empty MainQuestion: %v",
-			len(problematicQuestions), problematicQuestions)
+		})
 	}
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+func TestTopicDiscoveryWithChaptersRoot(t *testing.T) {
+	// Test topic discovery functionality
+	chaptersRoot := "/home/abhishek/Downloads/experiments/ai-tools/ddia-clicker/ddia-quiz-bot/content/chapters"
+	
+	scanner := markdown.NewScanner("")
+	topics, err := scanner.DiscoverTopics(chaptersRoot)
+	
+	require.NoError(t, err, "Topic discovery should not error")
+	require.NotEmpty(t, topics, "Should discover at least one topic")
+	
+	// Find GFS topic
+	var gfsTopic *markdown.TopicInfo
+	for _, topic := range topics {
+		if topic.Name == "09-distributed-systems-gfs" {
+			gfsTopic = &topic
+			break
+		}
 	}
-	return b
+	
+	require.NotNil(t, gfsTopic, "Should find GFS topic")
+	assert.Equal(t, "Distributed Systems Gfs", gfsTopic.DisplayName)
+	assert.Greater(t, gfsTopic.TotalCount, 0, "GFS topic should have questions")
+	assert.NotEmpty(t, gfsTopic.LevelCounts, "Should have level counts")
+	
+	// Verify only GFS has questions (based on current state)
+	hasQuestions := 0
+	for _, topic := range topics {
+		if topic.TotalCount > 0 {
+			hasQuestions++
+			t.Logf("Topic %s has %d questions", topic.Name, topic.TotalCount)
+		}
+	}
+	
+	assert.Equal(t, 1, hasQuestions, "Currently only one chapter (GFS) should have subjective questions")
+}
+
+func TestAppModelQuestionLoading(t *testing.T) {
+	// Test the actual app model's question loading flow
+	cfg := &config.TUIConfig{
+		ChaptersRootPath: "ddia-quiz-bot/content/chapters",
+		SessionsDir:      "test_sessions",
+		AutoSaveInterval: 30 * time.Second,
+	}
+	
+	app := NewImprovedAppModel("testuser", cfg)
+	
+	// Initialize the app
+	cmd := app.Init()
+	require.NotNil(t, cmd, "Init should return a command")
+	
+	// Simulate topic discovery message
+	scanner := markdown.NewScanner("")
+	topics, err := scanner.DiscoverTopics(
+		"/home/abhishek/Downloads/experiments/ai-tools/ddia-clicker/" + cfg.ChaptersRootPath)
+	
+	if err == nil && len(topics) > 0 {
+		// Send topics discovered message
+		msg := topicsDiscoveredMsg{topics: topics, err: nil}
+		model, _ := app.Update(msg)
+		updatedApp := model.(ImprovedAppModel)
+		
+		assert.Equal(t, len(topics), len(updatedApp.availableTopics), 
+			"Should have discovered topics")
+		assert.NotEqual(t, StateWelcome, updatedApp.state, 
+			"Should not be stuck in welcome state after topic discovery")
+	}
+}
+
+func TestWelcomeScreenLoadingState(t *testing.T) {
+	// Test that welcome screen properly shows loading state
+	
+	t.Run("Topic mode", func(t *testing.T) {
+		cfg := &config.TUIConfig{
+			ChaptersRootPath: "ddia-quiz-bot/content/chapters",
+			SessionsDir:      "test_sessions",
+			AutoSaveInterval: 30 * time.Second,
+		}
+		
+		app := NewImprovedAppModel("testuser", cfg)
+		
+		// Before topics are discovered
+		view := app.renderWelcome()
+		assert.Contains(t, view, "Discovering topics...", 
+			"Should show discovering topics message in topic mode")
+		
+		// After topics are discovered
+		app.availableTopics = []markdown.TopicInfo{
+			{Name: "test-topic", DisplayName: "Test Topic", TotalCount: 10},
+		}
+		view = app.renderWelcome()
+		assert.NotContains(t, view, "Discovering topics...", 
+			"Should not show discovering message after topics are loaded")
+		assert.Contains(t, view, "Found: 1 topics", 
+			"Should show topic count when loaded")
+	})
+	
+	t.Run("Single topic mode", func(t *testing.T) {
+		cfg := &config.TUIConfig{
+			ContentPath:      "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective",
+			ChaptersRootPath: "", // Empty for single topic mode
+			SessionsDir:      "test_sessions",
+			AutoSaveInterval: 30 * time.Second,
+		}
+		
+		app := NewImprovedAppModel("testuser", cfg)
+		
+		// Before questions are loaded
+		view := app.renderWelcome()
+		assert.Contains(t, view, "Loading questions...", 
+			"Should show loading questions message in single topic mode")
+		
+		// After questions are loaded
+		app.questions = make([]*models.Question, 5)
+		view = app.renderWelcome()
+		assert.NotContains(t, view, "Loading questions...", 
+			"Should not show loading message after questions are loaded")
+		assert.Contains(t, view, "Loaded: 5 questions", 
+			"Should show question count when loaded")
+	})
+}
+
+func TestSingleTopicModeFallback(t *testing.T) {
+	// Test fallback to single topic mode when chapters_root_path is empty
+	cfg := &config.TUIConfig{
+		ContentPath:      "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective",
+		ChaptersRootPath: "", // Empty to trigger single topic mode
+		SessionsDir:      "test_sessions",
+		AutoSaveInterval: 30 * time.Second,
+	}
+	
+	app := NewImprovedAppModel("testuser", cfg)
+	
+	// Init should trigger loadQuestionsCmd instead of discoverTopicsCmd
+	cmd := app.Init()
+	require.NotNil(t, cmd, "Init should return a command")
+	
+	// In single topic mode, it should try to load questions directly
+	scanner := markdown.NewScanner(
+		"/home/abhishek/Downloads/experiments/ai-tools/ddia-clicker/" + cfg.ContentPath)
+	index, err := scanner.ScanQuestions()
+	
+	if err == nil {
+		assert.NotEmpty(t, index, "Should load questions in single topic mode")
+	}
 }

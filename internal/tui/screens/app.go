@@ -21,6 +21,7 @@ type ScreenState int
 
 const (
 	StateWelcome ScreenState = iota
+	StateTopicSelect
 	StateSessionSelect
 	StateQuestion
 	StateComplete
@@ -34,6 +35,8 @@ type ImprovedAppModel struct {
 	sessionManager    *session.Manager
 	currentSession    *session.Session
 	existingSessions  []*session.Session
+	availableTopics   []markdown.TopicInfo
+	selectedTopic     *markdown.TopicInfo
 	questions         []*models.Question
 	currentIndex      int
 	textarea          textarea.Model
@@ -74,6 +77,14 @@ func NewImprovedAppModel(user string, cfg *config.TUIConfig) ImprovedAppModel {
 
 // Init initializes the model
 func (m ImprovedAppModel) Init() tea.Cmd {
+	// Check if using topic selection mode
+	if m.config.ChaptersRootPath != "" {
+		return tea.Batch(
+			m.discoverTopicsCmd(),
+			textarea.Blink,
+		)
+	}
+	// Fallback to legacy single-topic mode
 	return tea.Batch(
 		m.loadQuestionsCmd(),
 		m.checkExistingSessionsCmd(),
@@ -102,10 +113,30 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.state {
 		case StateWelcome:
 			if msg.String() == "enter" {
-				if len(m.existingSessions) > 0 {
+				// Topic selection mode
+				if m.config.ChaptersRootPath != "" && len(m.availableTopics) > 0 {
+					m.state = StateTopicSelect
+				} else if len(m.existingSessions) > 0 {
 					m.state = StateSessionSelect
 				} else {
 					return m, m.createNewSessionCmd()
+				}
+			} else if msg.String() == "q" {
+				m.quitting = true
+				return m, tea.Quit
+			}
+
+		case StateTopicSelect:
+			// Handle number keys 1-9 for topic selection
+			if len(msg.String()) == 1 && msg.String()[0] >= '1' && msg.String()[0] <= '9' {
+				topicIdx := int(msg.String()[0] - '1')
+				if topicIdx < len(m.availableTopics) {
+					m.selectedTopic = &m.availableTopics[topicIdx]
+					// Load questions for selected topic and check for existing sessions
+					return m, tea.Batch(
+						m.loadTopicQuestionsCmd(),
+						m.checkTopicSessionsCmd(),
+					)
 				}
 			} else if msg.String() == "q" {
 				m.quitting = true
@@ -149,11 +180,31 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+	case topicsDiscoveredMsg:
+		m.availableTopics = msg.topics
+		if msg.err != nil {
+			m.err = msg.err
+			return m, tea.Quit
+		}
+		// Transition to topic select if we have topics
+		if len(m.availableTopics) > 0 && m.config.ChaptersRootPath != "" {
+			m.state = StateTopicSelect
+		}
+
 	case questionsLoadedMsg:
 		m.questions = msg.questions
 		if msg.err != nil {
 			m.err = msg.err
 			return m, tea.Quit
+		}
+		// After loading questions, check for existing sessions
+		if m.selectedTopic != nil {
+			// Topics mode: transition to session select
+			if len(m.existingSessions) > 0 {
+				m.state = StateSessionSelect
+			} else {
+				return m, m.createNewSessionCmd()
+			}
 		}
 
 	case existingSessionsMsg:
@@ -223,6 +274,8 @@ func (m ImprovedAppModel) View() string {
 	switch m.state {
 	case StateWelcome:
 		return m.renderWelcome()
+	case StateTopicSelect:
+		return m.renderTopicSelect()
 	case StateSessionSelect:
 		return m.renderSessionSelect()
 	case StateQuestion:
@@ -245,7 +298,13 @@ func (m ImprovedAppModel) renderWelcome() string {
 
 	title := titleStyle.Render("📚 Quiz TUI - Subjective Questions")
 
-	if m.questions == nil {
+	// In topic mode, we're discovering topics, not loading questions yet
+	if m.config.ChaptersRootPath != "" && m.availableTopics == nil {
+		return fmt.Sprintf("%s\n\n%s\n", title, "Discovering topics...")
+	}
+
+	// In single topic mode, we're loading questions directly
+	if m.config.ChaptersRootPath == "" && m.questions == nil {
 		return fmt.Sprintf("%s\n\n%s\n", title, "Loading questions...")
 	}
 
@@ -253,11 +312,25 @@ func (m ImprovedAppModel) renderWelcome() string {
 		Foreground(lipgloss.Color("240")).
 		MarginTop(1)
 
-	info := fmt.Sprintf(
-		"Loaded: %d questions\nUser: %s\nMode: Subjective",
-		len(m.questions),
-		m.user,
-	)
+	var info string
+	if m.config.ChaptersRootPath != "" && len(m.availableTopics) > 0 {
+		// Topic mode with topics discovered
+		info = fmt.Sprintf(
+			"Found: %d topics\nUser: %s\nMode: Topic Selection",
+			len(m.availableTopics),
+			m.user,
+		)
+	} else if m.questions != nil {
+		// Single topic mode or questions loaded
+		info = fmt.Sprintf(
+			"Loaded: %d questions\nUser: %s\nMode: Subjective",
+			len(m.questions),
+			m.user,
+		)
+	} else {
+		// Still loading
+		info = fmt.Sprintf("User: %s\nMode: Initializing...", m.user)
+	}
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("86")).
@@ -266,6 +339,46 @@ func (m ImprovedAppModel) renderWelcome() string {
 	help := "Press Enter to continue • Press q to quit"
 
 	return fmt.Sprintf("%s\n\n%s\n\n%s\n", title, infoStyle.Render(info), helpStyle.Render(help))
+}
+
+// renderTopicSelect renders the topic selection screen
+func (m ImprovedAppModel) renderTopicSelect() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205")).
+		MarginTop(2).
+		MarginBottom(2)
+
+	title := titleStyle.Render("📚 Select Your Topic")
+
+	if len(m.availableTopics) == 0 {
+		return fmt.Sprintf("%s\n\nLoading topics...\n", title)
+	}
+
+	// Build topic list
+	var topicList strings.Builder
+	topicList.WriteString("Available Topics:\n\n")
+
+	topicStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("86")).
+		MarginLeft(2)
+
+	for i, topic := range m.availableTopics {
+		if i >= 9 {
+			break // Limit to 9 topics for single-digit selection
+		}
+		
+		topicLine := fmt.Sprintf("  [%d] %s (%d questions)\n", i+1, topic.DisplayName, topic.TotalCount)
+		topicList.WriteString(topicStyle.Render(topicLine))
+	}
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		MarginTop(2)
+
+	help := helpStyle.Render("Press 1-9 to select • Press q to quit")
+
+	return fmt.Sprintf("%s\n\n%s\n%s\n", title, topicList.String(), help)
 }
 
 // renderSessionSelect renders the session selection screen
@@ -280,7 +393,11 @@ func (m ImprovedAppModel) renderSessionSelect() string {
 	infoStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240"))
 
-	info := fmt.Sprintf("Found %d incomplete session(s)", len(m.existingSessions))
+	info := ""
+	if m.selectedTopic != nil {
+		info = fmt.Sprintf("Topic: %s\n", m.selectedTopic.DisplayName)
+	}
+	info += fmt.Sprintf("Found %d incomplete session(s)", len(m.existingSessions))
 
 	if len(m.existingSessions) > 0 {
 		session := m.existingSessions[0]
@@ -310,12 +427,16 @@ func (m ImprovedAppModel) renderQuestion() string {
 
 	question := m.questions[m.currentIndex]
 
-	// Progress bar
+	// Progress bar with topic and level info
 	progressStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("205")).
 		Bold(true)
 
-	progress := progressStyle.Render(fmt.Sprintf("Question %d of %d", m.currentIndex+1, len(m.questions)))
+	progressText := fmt.Sprintf("Question %d of %d", m.currentIndex+1, len(m.questions))
+	if m.selectedTopic != nil {
+		progressText = fmt.Sprintf("%s | Level: %s | %s", m.selectedTopic.DisplayName, question.Level, progressText)
+	}
+	progress := progressStyle.Render(progressText)
 
 	// Get question text
 	questionText := question.MainQuestion
@@ -443,6 +564,19 @@ func (m *ImprovedAppModel) restoreSession() {
 
 // Commands
 
+type topicsDiscoveredMsg struct {
+	topics []markdown.TopicInfo
+	err    error
+}
+
+func (m ImprovedAppModel) discoverTopicsCmd() tea.Cmd {
+	return func() tea.Msg {
+		scanner := markdown.NewScanner("")
+		topics, err := scanner.DiscoverTopics(m.config.ChaptersRootPath)
+		return topicsDiscoveredMsg{topics: topics, err: err}
+	}
+}
+
 type questionsLoadedMsg struct {
 	questions []*models.Question
 	err       error
@@ -470,6 +604,25 @@ func (m ImprovedAppModel) loadQuestionsCmd() tea.Cmd {
 	}
 }
 
+func (m ImprovedAppModel) loadTopicQuestionsCmd() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedTopic == nil {
+			return questionsLoadedMsg{err: fmt.Errorf("no topic selected")}
+		}
+
+		scanner := markdown.NewScanner(m.selectedTopic.Path)
+		index, err := scanner.ScanQuestions()
+		if err != nil {
+			return questionsLoadedMsg{err: err}
+		}
+
+		// Get questions in progressive order: L3 -> L4 -> L5 -> L6 -> L7
+		questions := scanner.GetProgressiveQuestions(index)
+
+		return questionsLoadedMsg{questions: questions}
+	}
+}
+
 type existingSessionsMsg struct {
 	sessions []*session.Session
 	err      error
@@ -482,6 +635,16 @@ func (m ImprovedAppModel) checkExistingSessionsCmd() tea.Cmd {
 	}
 }
 
+func (m ImprovedAppModel) checkTopicSessionsCmd() tea.Cmd {
+	return func() tea.Msg {
+		if m.selectedTopic == nil {
+			return existingSessionsMsg{sessions: []*session.Session{}, err: nil}
+		}
+		sessions, err := m.sessionManager.ListIncompleteSessionsForTopic(m.user, "subjective", m.selectedTopic.Name)
+		return existingSessionsMsg{sessions: sessions, err: err}
+	}
+}
+
 type sessionCreatedMsg struct {
 	session *session.Session
 	err     error
@@ -489,7 +652,23 @@ type sessionCreatedMsg struct {
 
 func (m ImprovedAppModel) createNewSessionCmd() tea.Cmd {
 	return func() tea.Msg {
-		sess, err := m.sessionManager.CreateSession(m.user, "subjective", m.questions)
+		var sess *session.Session
+		var err error
+		
+		if m.selectedTopic != nil {
+			// Create session with topic information
+			sess, err = m.sessionManager.CreateSessionWithTopic(
+				m.user, 
+				"subjective", 
+				m.selectedTopic.Name, 
+				m.selectedTopic.DisplayName, 
+				m.questions,
+			)
+		} else {
+			// Legacy mode without topic
+			sess, err = m.sessionManager.CreateSession(m.user, "subjective", m.questions)
+		}
+		
 		return sessionCreatedMsg{session: sess, err: err}
 	}
 }
