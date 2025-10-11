@@ -401,3 +401,359 @@ func TestSaveBeforeQuitPersistsAnswer(t *testing.T) {
 	assert.Equal(t, 1, saved.Session.Answered)
 	assert.Greater(t, saved.Responses[0].TimeSpentSeconds, 0)
 }
+
+// TestInitializeQuestionComponentMCQDetection tests MCQ vs subjective question type detection
+func TestInitializeQuestionComponentMCQDetection(t *testing.T) {
+	tests := []struct {
+		name          string
+		question      *models.Question
+		wantQType     string
+		wantMCQNotNil bool
+	}{
+		{
+			name: "MCQ question with type set",
+			question: &models.Question{
+				ID:           "mcq-001",
+				Type:         "mcq",
+				MainQuestion: "Test MCQ?",
+				Options:      []string{"A) Option 1", "B) Option 2", "C) Option 3"},
+				Answer:       "B",
+				Explanation:  "Test explanation",
+			},
+			wantQType:     "mcq",
+			wantMCQNotNil: true,
+		},
+		{
+			name: "Subjective question with type set",
+			question: &models.Question{
+				ID:           "subj-001",
+				Type:         "subjective",
+				MainQuestion: "Explain the concept...",
+			},
+			wantQType:     "subjective",
+			wantMCQNotNil: false,
+		},
+		{
+			name: "Question with no type defaults to subjective",
+			question: &models.Question{
+				ID:           "no-type-001",
+				Type:         "",
+				MainQuestion: "Some question...",
+			},
+			wantQType:     "subjective",
+			wantMCQNotNil: false,
+		},
+		{
+			name: "Question with empty type string defaults to subjective",
+			question: &models.Question{
+				ID:           "empty-type-001",
+				MainQuestion: "Another question...",
+			},
+			wantQType:     "subjective",
+			wantMCQNotNil: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.TUIConfig{
+				SessionsDir:      t.TempDir(),
+				AutoSaveInterval: time.Second,
+			}
+
+			app := NewImprovedAppModel("testuser", cfg)
+			app.questions = []*models.Question{tt.question}
+			app.currentIndex = 0
+
+			// Initialize component
+			app.initializeQuestionComponent()
+
+			// Verify question type
+			assert.Equal(t, tt.wantQType, app.currentQType,
+				"Question type should be %s", tt.wantQType)
+
+			// Verify MCQ component state
+			if tt.wantMCQNotNil {
+				assert.NotNil(t, app.mcqComponent, "MCQ component should be initialized for MCQ questions")
+				assert.False(t, app.showExplanation, "Explanation should be hidden initially")
+			} else {
+				assert.Nil(t, app.mcqComponent, "MCQ component should be nil for subjective questions")
+			}
+		})
+	}
+}
+
+// TestSwitchingBetweenQuestionTypes tests state management when switching between MCQ and subjective
+func TestSwitchingBetweenQuestionTypes(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	// Create a mix of questions
+	app.questions = []*models.Question{
+		{
+			ID:           "subj-001",
+			Type:         "subjective",
+			MainQuestion: "Subjective question 1",
+		},
+		{
+			ID:           "mcq-001",
+			Type:         "mcq",
+			MainQuestion: "MCQ question 1?",
+			Options:      []string{"A) Option 1", "B) Option 2"},
+			Answer:       "A",
+			Explanation:  "Explanation for MCQ",
+		},
+		{
+			ID:           "subj-002",
+			Type:         "subjective",
+			MainQuestion: "Subjective question 2",
+		},
+	}
+
+	// Start with first subjective question
+	app.currentIndex = 0
+	app.initializeQuestionComponent()
+
+	assert.Equal(t, "subjective", app.currentQType)
+	assert.Nil(t, app.mcqComponent)
+
+	// Switch to MCQ
+	app.currentIndex = 1
+	app.initializeQuestionComponent()
+
+	assert.Equal(t, "mcq", app.currentQType)
+	assert.NotNil(t, app.mcqComponent)
+
+	// Switch back to subjective
+	app.currentIndex = 2
+	app.initializeQuestionComponent()
+
+	assert.Equal(t, "subjective", app.currentQType)
+	assert.Nil(t, app.mcqComponent, "MCQ component should be cleared when switching to subjective")
+
+	// Switch back to MCQ again
+	app.currentIndex = 1
+	app.initializeQuestionComponent()
+
+	assert.Equal(t, "mcq", app.currentQType)
+	assert.NotNil(t, app.mcqComponent, "MCQ component should be re-initialized")
+	assert.Equal(t, 0, app.mcqComponent.SelectedIdx, "Should start fresh with first option selected")
+	assert.False(t, app.mcqComponent.Submitted, "Should not be submitted on fresh initialization")
+}
+
+// TestTextareaResetAndAnswerLoading tests textarea behavior for subjective questions
+func TestTextareaResetAndAnswerLoading(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	questions := []*models.Question{
+		{
+			ID:           "subj-001",
+			Type:         "subjective",
+			MainQuestion: "Question 1",
+		},
+		{
+			ID:           "subj-002",
+			Type:         "subjective",
+			MainQuestion: "Question 2",
+		},
+	}
+
+	app.questions = questions
+
+	// Create a session with an existing answer
+	session, err := app.sessionManager.CreateSession("testuser", "subjective", questions)
+	require.NoError(t, err)
+
+	// Add existing answer for first question
+	app.sessionManager.UpdateResponse(session, "subj-001", "existing answer for q1", 30)
+	require.NoError(t, app.sessionManager.SaveSession(session))
+
+	app.currentSession = session
+
+	// Initialize first question with existing answer
+	app.currentIndex = 0
+	app.initializeQuestionComponent()
+
+	assert.Equal(t, "existing answer for q1", app.textarea.Value(),
+		"Should load existing answer from session")
+
+	// Switch to second question (no existing answer)
+	app.currentIndex = 1
+	app.initializeQuestionComponent()
+
+	assert.Empty(t, app.textarea.Value(),
+		"Should reset textarea when no existing answer")
+}
+
+// TestMCQComponentInitialization tests MCQ component is properly configured
+func TestMCQComponentInitialization(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	question := &models.Question{
+		ID:           "mcq-001",
+		Type:         "mcq",
+		MainQuestion: "What is 2+2?",
+		Options:      []string{"A) 3", "B) 4", "C) 5", "D) 6"},
+		Answer:       "B",
+		Explanation:  "Two plus two equals four",
+		Hook:         "Basic math",
+	}
+
+	app.questions = []*models.Question{question}
+	app.currentIndex = 0
+
+	app.initializeQuestionComponent()
+
+	require.NotNil(t, app.mcqComponent)
+
+	// Verify MCQ component properties
+	assert.Equal(t, 4, len(app.mcqComponent.Options), "Should have 4 options")
+	assert.Equal(t, 0, app.mcqComponent.SelectedIdx, "Should start with first option selected")
+	assert.False(t, app.mcqComponent.Submitted, "Should not be submitted initially")
+	assert.Equal(t, 1, app.mcqComponent.CorrectIdx, "Correct answer B should be index 1")
+	assert.Equal(t, "Two plus two equals four", app.mcqComponent.Explanation,
+		"Explanation should be set")
+}
+
+// TestInitializeOutOfBoundsHandling tests boundary conditions
+func TestInitializeOutOfBoundsHandling(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	app.questions = []*models.Question{
+		{ID: "q1", Type: "subjective", MainQuestion: "Question 1"},
+	}
+
+	// Test with index out of bounds
+	app.currentIndex = 999
+	app.initializeQuestionComponent()
+
+	// Should not panic and should not set currentQType
+	assert.Empty(t, app.currentQType, "Should not set type when out of bounds")
+
+	// Test with empty questions slice
+	app.questions = []*models.Question{}
+	app.currentIndex = 0
+	app.initializeQuestionComponent()
+
+	assert.Empty(t, app.currentQType, "Should not set type when questions is empty")
+}
+
+// TestMCQStateTransitions tests the state machine for MCQ question flow
+func TestMCQStateTransitions(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	mcqQuestion := &models.Question{
+		ID:           "mcq-001",
+		Type:         "mcq",
+		MainQuestion: "Test MCQ?",
+		Options:      []string{"A) Option 1", "B) Option 2", "C) Option 3"},
+		Answer:       "B",
+		Explanation:  "B is correct",
+	}
+
+	app.questions = []*models.Question{mcqQuestion}
+	app.currentIndex = 0
+	app.state = StateQuestion
+
+	// Create session
+	session, err := app.sessionManager.CreateSession("testuser", "mcq", app.questions)
+	require.NoError(t, err)
+	app.currentSession = session
+	app.questionStartTime = time.Now()
+
+	// Initialize MCQ component
+	app.initializeQuestionComponent()
+	require.NotNil(t, app.mcqComponent)
+
+	// Test navigation (move down)
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyDown})
+	updated := model.(ImprovedAppModel)
+	assert.Equal(t, 1, updated.mcqComponent.SelectedIdx, "Should move to second option")
+
+	// Test navigation (move up)
+	model, _ = updated.Update(tea.KeyMsg{Type: tea.KeyUp})
+	updated = model.(ImprovedAppModel)
+	assert.Equal(t, 0, updated.mcqComponent.SelectedIdx, "Should move back to first option")
+
+	// Move to correct answer (B = index 1)
+	model, _ = updated.Update(tea.KeyMsg{Type: tea.KeyDown})
+	updated = model.(ImprovedAppModel)
+
+	// Submit answer
+	model, cmd := updated.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	submitted := model.(ImprovedAppModel)
+
+	assert.True(t, submitted.mcqComponent.Submitted, "MCQ should be marked as submitted")
+	assert.NotNil(t, cmd, "Should trigger save command")
+
+	// Verify save command was issued
+	msg := cmd()
+	_, ok := msg.(answerSavedMsg)
+	assert.True(t, ok, "Should return answerSavedMsg")
+}
+
+// TestResumeMCQSession tests resuming a session with MCQ answers
+func TestResumeMCQSession(t *testing.T) {
+	cfg := &config.TUIConfig{
+		SessionsDir:      t.TempDir(),
+		AutoSaveInterval: time.Second,
+	}
+
+	app := NewImprovedAppModel("testuser", cfg)
+
+	mcqQuestion := &models.Question{
+		ID:           "mcq-001",
+		Type:         "mcq",
+		MainQuestion: "Test?",
+		Options:      []string{"A) Opt 1", "B) Opt 2"},
+		Answer:       "A",
+	}
+
+	app.questions = []*models.Question{mcqQuestion}
+
+	// Create session with MCQ answer
+	session, err := app.sessionManager.CreateSession("testuser", "mcq", app.questions)
+	require.NoError(t, err)
+
+	isCorrect := true
+	app.sessionManager.UpdateResponse(session, "mcq-001", "A", 10)
+	// Update the response to include MCQ-specific fields
+	session.Responses[0].QuestionType = "mcq"
+	session.Responses[0].IsCorrect = &isCorrect
+	session.Responses[0].SelectedOption = "A"
+	require.NoError(t, app.sessionManager.SaveSession(session))
+
+	// Load session
+	loaded, err := app.sessionManager.LoadSession("testuser", "mcq", session.Session.SessionID)
+	require.NoError(t, err)
+
+	assert.Len(t, loaded.Responses, 1)
+	assert.Equal(t, "mcq", loaded.Responses[0].QuestionType)
+	assert.Equal(t, "A", loaded.Responses[0].Answer)
+	assert.NotNil(t, loaded.Responses[0].IsCorrect)
+	assert.True(t, *loaded.Responses[0].IsCorrect)
+}

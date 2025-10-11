@@ -71,6 +71,10 @@ func (p *Parser) ParseQuestionFile(filepath string) (*models.Question, error) {
 		question.Category = category
 	}
 
+	if qtype, ok := metadata["type"].(string); ok {
+		question.Type = qtype
+	}
+
 	// Parse the markdown body for question details
 	p.parseBody(body, question)
 
@@ -95,7 +99,7 @@ func (p *Parser) extractFrontmatter(content string) (string, string, bool) {
 			return frontmatter, body, true
 		}
 	}
-	
+
 	// Fallback to YAML format (---...---) for backward compatibility
 	if strings.HasPrefix(content, "---\n") {
 		matches := p.frontmatterRegex.FindStringSubmatch(content)
@@ -122,7 +126,7 @@ func (p *Parser) parseBody(body string, question *models.Question) {
 		if strings.HasPrefix(line, "## ") {
 			// Save previous section if any
 			p.saveSection(currentSection, sectionContent.String(), question)
-			
+
 			// Start new section
 			currentSection = strings.TrimSpace(strings.TrimPrefix(line, "## "))
 			sectionContent.Reset()
@@ -149,12 +153,12 @@ func (p *Parser) saveSection(section, content string, question *models.Question)
 
 	// Normalize section name: lowercase and extract prefix before any dash or space
 	sectionLower := strings.ToLower(section)
-	
+
 	// Split by dash to get the base section name (e.g., "main_question - Core Question" -> "main_question")
 	if idx := strings.Index(sectionLower, " -"); idx != -1 {
 		sectionLower = strings.TrimSpace(sectionLower[:idx])
 	}
-	
+
 	// Also normalize underscores to spaces for comparison
 	sectionNormalized := strings.ReplaceAll(sectionLower, "_", " ")
 
@@ -186,7 +190,7 @@ func (p *Parser) saveSection(section, content string, question *models.Question)
 func (p *Parser) parseListSection(content string) []string {
 	var items []string
 	lines := strings.Split(content, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "-") || strings.HasPrefix(line, "*") || strings.HasPrefix(line, "•") {
@@ -198,7 +202,7 @@ func (p *Parser) parseListSection(content string) []string {
 			items = append(items, matches[1])
 		}
 	}
-	
+
 	return items
 }
 
@@ -208,7 +212,7 @@ func (p *Parser) parseRubricSection(content string) map[string]string {
 	lines := strings.Split(content, "\n")
 	currentKey := ""
 	currentValue := ""
-	
+
 	for _, line := range lines {
 		// Check if it's a new rubric item
 		if strings.Contains(line, ":") {
@@ -216,7 +220,7 @@ func (p *Parser) parseRubricSection(content string) map[string]string {
 			if currentKey != "" {
 				rubric[currentKey] = strings.TrimSpace(currentValue)
 			}
-			
+
 			parts := strings.SplitN(line, ":", 2)
 			currentKey = strings.TrimSpace(parts[0])
 			if len(parts) > 1 {
@@ -229,12 +233,12 @@ func (p *Parser) parseRubricSection(content string) map[string]string {
 			currentValue += " " + strings.TrimSpace(line)
 		}
 	}
-	
+
 	// Save last item
 	if currentKey != "" {
 		rubric[currentKey] = strings.TrimSpace(currentValue)
 	}
-	
+
 	return rubric
 }
 
@@ -243,17 +247,17 @@ func (p *Parser) parseRubricSection(content string) map[string]string {
 func (p *Parser) parseMCQOptions(content string) []string {
 	var options []string
 	lines := strings.Split(content, "\n")
-	
+
 	// Regex to match: optional bullet/dash, letter with parenthesis, then text
 	// Examples: "- A) text", "A) text", "* B) text"
 	optionRegex := regexp.MustCompile(`^[\s\-\*•]*([A-Za-z])\)\s*(.+)`)
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		if matches := optionRegex.FindStringSubmatch(line); len(matches) > 2 {
 			// Format: "Letter) Text"
 			letter := strings.ToUpper(matches[1])
@@ -261,26 +265,26 @@ func (p *Parser) parseMCQOptions(content string) []string {
 			options = append(options, letter+") "+text)
 		}
 	}
-	
+
 	return options
 }
 
 // parseMarkdownBody attempts to parse a pure markdown file without frontmatter
 func (p *Parser) parseMarkdownBody(content string) (*models.Question, error) {
 	question := &models.Question{}
-	
+
 	// Look for question ID in the content
 	idRegex := regexp.MustCompile(`(?i)question[_\s]?id:\s*([^\n]+)`)
 	if matches := idRegex.FindStringSubmatch(content); len(matches) > 1 {
 		question.ID = strings.TrimSpace(matches[1])
 	}
-	
+
 	// Parse the body
 	p.parseBody(content, question)
-	
+
 	if question.ID == "" {
 		return nil, fmt.Errorf("no question ID found in file")
 	}
-	
+
 	return question, nil
 }

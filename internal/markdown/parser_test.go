@@ -8,13 +8,13 @@ import (
 
 func TestParseQuestionFile(t *testing.T) {
 	tests := []struct {
-		name        string
-		content     string
-		wantID      string
-		wantTitle   string
-		wantLevel   string
+		name         string
+		content      string
+		wantID       string
+		wantTitle    string
+		wantLevel    string
 		wantQuestion string
-		wantErr     bool
+		wantErr      bool
 	}{
 		{
 			name: "complete question with frontmatter",
@@ -175,10 +175,10 @@ Question without ID.
 
 func TestExtractFrontmatter(t *testing.T) {
 	tests := []struct {
-		name             string
-		content          string
-		wantFrontmatter  string
-		wantBody         string
+		name            string
+		content         string
+		wantFrontmatter string
+		wantBody        string
 	}{
 		{
 			name: "valid frontmatter",
@@ -323,8 +323,8 @@ This is an excellent answer.
 	}
 
 	if question.MainQuestion != "This is the actual question text." {
-		t.Errorf("MainQuestion: got %q, want %q", 
-			question.MainQuestion, 
+		t.Errorf("MainQuestion: got %q, want %q",
+			question.MainQuestion,
 			"This is the actual question text.")
 	}
 
@@ -339,7 +339,7 @@ This is an excellent answer.
 
 func TestParseRealQuestionFile(t *testing.T) {
 	// Test with an actual question file if it exists
-	questionPath := filepath.Join("..", "..", "ddia-quiz-bot", "content", "chapters", 
+	questionPath := filepath.Join("..", "..", "ddia-quiz-bot", "content", "chapters",
 		"09-distributed-systems-gfs", "subjective", "L3-baseline", "01-replication-basics.md")
 
 	if _, err := os.Stat(questionPath); os.IsNotExist(err) {
@@ -370,5 +370,385 @@ func TestParseRealQuestionFile(t *testing.T) {
 
 	if len(question.CoreConcepts) == 0 {
 		t.Log("Warning: CoreConcepts is empty")
+	}
+}
+
+// TestParseMCQWithTOML tests parsing MCQ questions with TOML frontmatter
+func TestParseMCQWithTOML(t *testing.T) {
+	tests := []struct {
+		name            string
+		content         string
+		wantType        string
+		wantOptions     int
+		wantAnswer      string
+		wantExplanation bool
+		wantHook        bool
+		wantError       bool
+	}{
+		{
+			name: "complete MCQ with TOML frontmatter",
+			content: `+++
+id = "test-mcq-001"
+title = "Test MCQ"
+level = "L3"
+category = "baseline"
+type = "mcq"
++++
+
+## Question
+
+What is the capital of France?
+
+## Options
+
+- A) London
+- B) Paris
+- C) Berlin
+- D) Madrid
+
+## Answer
+
+B
+
+## Explanation
+
+Paris is the capital and largest city of France.
+
+## Hook
+
+Geography basics matter!
+
+## Core Concepts
+
+- European capitals
+- Geography
+
+## Peripheral Concepts
+
+- French culture
+- European cities
+`,
+			wantType:        "mcq",
+			wantOptions:     4,
+			wantAnswer:      "B",
+			wantExplanation: true,
+			wantHook:        true,
+		},
+		{
+			name: "MCQ with YAML frontmatter (backward compatibility)",
+			content: `---
+id: test-mcq-002
+title: Test MCQ YAML
+level: L4
+category: baseline
+type: mcq
+---
+
+## Question
+
+Which is a programming language?
+
+## Options
+
+- A) HTML
+- B) CSS
+- C) Python
+- D) JSON
+
+## Answer
+
+C
+
+## Explanation
+
+Python is a general-purpose programming language.
+`,
+			wantType:        "mcq",
+			wantOptions:     4,
+			wantAnswer:      "C",
+			wantExplanation: true,
+			wantHook:        false,
+		},
+		{
+			name: "MCQ with various option formats",
+			content: `+++
+id = "test-mcq-003"
+type = "mcq"
++++
+
+## Question
+
+Test question
+
+## Options
+
+A) First option
+* B) Second option
+- C) Third option
+  D) Fourth option
+
+## Answer
+
+A
+`,
+			wantType:    "mcq",
+			wantOptions: 4,
+			wantAnswer:  "A",
+		},
+		{
+			name: "MCQ missing answer field",
+			content: `+++
+id = "test-mcq-004"
+type = "mcq"
++++
+
+## Question
+
+Test question
+
+## Options
+
+- A) Option 1
+- B) Option 2
+`,
+			wantType:    "mcq",
+			wantOptions: 2,
+			wantAnswer:  "", // Should handle gracefully
+		},
+		{
+			name: "Mixed MCQ and subjective fields",
+			content: `+++
+id = "test-mcq-005"
+type = "mcq"
++++
+
+## Question
+
+Test question
+
+## Options
+
+- A) Option A
+- B) Option B
+
+## Answer
+
+A
+
+## Explanation
+
+Test explanation
+
+## Sample Excellent Answer
+
+This is ignored for MCQ
+
+## Core Concepts
+
+- Concept 1
+- Concept 2
+`,
+			wantType:    "mcq",
+			wantOptions: 2,
+			wantAnswer:  "A",
+		},
+	}
+
+	parser := NewParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temp file
+			tmpFile, err := os.CreateTemp("", "mcq-test-*.md")
+			if err != nil {
+				t.Fatalf("Failed to create temp file: %v", err)
+			}
+			defer os.Remove(tmpFile.Name())
+
+			if _, err := tmpFile.WriteString(tt.content); err != nil {
+				t.Fatalf("Failed to write temp file: %v", err)
+			}
+			tmpFile.Close()
+
+			// Parse the file
+			question, err := parser.ParseQuestionFile(tmpFile.Name())
+
+			if tt.wantError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			// Verify type
+			if question.Type != tt.wantType {
+				t.Errorf("Type: got %q, want %q", question.Type, tt.wantType)
+			}
+
+			// Verify options
+			if len(question.Options) != tt.wantOptions {
+				t.Errorf("Options count: got %d, want %d", len(question.Options), tt.wantOptions)
+				t.Logf("Options: %v", question.Options)
+			}
+
+			// Verify answer
+			if question.Answer != tt.wantAnswer {
+				t.Errorf("Answer: got %q, want %q", question.Answer, tt.wantAnswer)
+			}
+
+			// Verify explanation
+			if tt.wantExplanation && question.Explanation == "" {
+				t.Error("Expected explanation but got empty string")
+			}
+
+			// Verify hook
+			if tt.wantHook && question.Hook == "" {
+				t.Error("Expected hook but got empty string")
+			}
+
+			// Verify question text is not empty
+			if question.MainQuestion == "" {
+				t.Error("MainQuestion should not be empty")
+			}
+		})
+	}
+}
+
+// TestParseMCQOptions tests the parseMCQOptions function with various formats
+func TestParseMCQOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    []string
+	}{
+		{
+			name: "standard dash format",
+			content: `- A) First option
+- B) Second option
+- C) Third option
+- D) Fourth option`,
+			want: []string{"A) First option", "B) Second option", "C) Third option", "D) Fourth option"},
+		},
+		{
+			name: "asterisk format",
+			content: `* A) First option
+* B) Second option`,
+			want: []string{"A) First option", "B) Second option"},
+		},
+		{
+			name: "no bullet format",
+			content: `A) First option
+B) Second option
+C) Third option`,
+			want: []string{"A) First option", "B) Second option", "C) Third option"},
+		},
+		{
+			name: "mixed spacing",
+			content: `  - A) Indented option
+-B) No space option
+  C)   Extra spaces`,
+			want: []string{"A) Indented option", "B) No space option", "C) Extra spaces"},
+		},
+		{
+			name: "lowercase letters (should convert to uppercase)",
+			content: `- a) First option
+- b) Second option`,
+			want: []string{"A) First option", "B) Second option"},
+		},
+		{
+			name: "empty lines and extra content",
+			content: `- A) First option
+
+- B) Second option
+
+Some extra text here
+- C) Third option`,
+			want: []string{"A) First option", "B) Second option", "C) Third option"},
+		},
+	}
+
+	parser := NewParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parser.parseMCQOptions(tt.content)
+
+			if len(got) != len(tt.want) {
+				t.Errorf("Length mismatch: got %d, want %d", len(got), len(tt.want))
+				t.Logf("Got: %v", got)
+				t.Logf("Want: %v", tt.want)
+				return
+			}
+
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("Option %d: got %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestTOMLFrontmatterExtraction tests TOML vs YAML frontmatter detection
+func TestTOMLFrontmatterExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		wantTOML bool
+		wantFM   string
+		wantBody string
+	}{
+		{
+			name: "TOML frontmatter",
+			content: `+++
+id = "test"
+title = "Test"
++++
+
+Body content`,
+			wantTOML: true,
+			wantFM:   "id = \"test\"\ntitle = \"Test\"",
+			wantBody: "\n\nBody content",
+		},
+		{
+			name: "YAML frontmatter",
+			content: `---
+id: test
+title: Test
+---
+
+Body content`,
+			wantTOML: false,
+			wantFM:   "id: test\ntitle: Test",
+			wantBody: "\n\nBody content",
+		},
+		{
+			name:     "No frontmatter",
+			content:  "Just body content",
+			wantTOML: false,
+			wantFM:   "",
+			wantBody: "Just body content",
+		},
+	}
+
+	parser := NewParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFM, gotBody, gotTOML := parser.extractFrontmatter(tt.content)
+
+			if gotTOML != tt.wantTOML {
+				t.Errorf("TOML flag: got %v, want %v", gotTOML, tt.wantTOML)
+			}
+
+			if gotFM != tt.wantFM {
+				t.Errorf("Frontmatter:\ngot:  %q\nwant: %q", gotFM, tt.wantFM)
+			}
+
+			if gotBody != tt.wantBody {
+				t.Errorf("Body:\ngot:  %q\nwant: %q", gotBody, tt.wantBody)
+			}
+		})
 	}
 }
