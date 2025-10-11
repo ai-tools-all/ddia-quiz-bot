@@ -78,6 +78,15 @@ func (p *Parser) ParseQuestionFile(filepath string) (*models.Question, error) {
 	// Parse the markdown body for question details
 	p.parseBody(body, question)
 
+	// Auto-detect question type if not explicitly set
+	if question.Type == "" {
+		if len(question.Options) > 0 && question.Answer != "" {
+			question.Type = "mcq"
+		} else {
+			question.Type = "subjective"
+		}
+	}
+
 	// Validate question
 	if question.ID == "" {
 		return nil, fmt.Errorf("question ID not found")

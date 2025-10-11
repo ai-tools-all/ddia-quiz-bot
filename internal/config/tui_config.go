@@ -13,6 +13,7 @@ type TUIConfig struct {
 	SessionsDir      string        `mapstructure:"sessions_dir"`
 	ContentPath      string        `mapstructure:"content_path"`       // Deprecated: use ChaptersRootPath
 	ChaptersRootPath string        `mapstructure:"chapters_root_path"` // Path to chapters directory
+	DefaultMode      string        `mapstructure:"default_mode"`       // Default question mode: "mcq", "subjective", or "mixed"
 }
 
 // LoadTUIConfig loads TUI configuration from file
@@ -24,6 +25,7 @@ func LoadTUIConfig(configPath string) (*TUIConfig, error) {
 	v.SetDefault("sessions_dir", "sessions")
 	v.SetDefault("content_path", "ddia-quiz-bot/content/chapters/09-distributed-systems-gfs/subjective")
 	v.SetDefault("chapters_root_path", "ddia-quiz-bot/content/chapters")
+	v.SetDefault("default_mode", "mixed")
 
 	// Set config file if provided
 	if configPath != "" {

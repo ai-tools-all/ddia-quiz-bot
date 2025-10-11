@@ -12,11 +12,13 @@ import (
 
 // TopicInfo represents a discovered topic with metadata
 type TopicInfo struct {
-	Name        string         // e.g., "09-distributed-systems-gfs"
-	DisplayName string         // e.g., "GFS & Distributed Systems"
-	Path        string         // absolute path to topic directory
-	LevelCounts map[string]int // question count per level (L3, L4, etc.)
-	TotalCount  int            // total question count
+	Name            string         // e.g., "09-distributed-systems-gfs"
+	DisplayName     string         // e.g., "GFS & Distributed Systems"
+	Path            string         // absolute path to topic directory (subjective)
+	LevelCounts     map[string]int // question count per level (L3, L4, etc.)
+	TotalCount      int            // total question count
+	MCQCount        int            // MCQ question count
+	SubjectiveCount int            // Subjective question count
 }
 
 // Scanner recursively scans directories for markdown files
@@ -132,61 +134,76 @@ func (s *Scanner) DiscoverTopics(chaptersPath string) ([]TopicInfo, error) {
 		topicName := entry.Name()
 		topicPath := filepath.Join(chaptersPath, topicName)
 		subjectivePath := filepath.Join(topicPath, "subjective")
-
-		// Check if subjective directory exists
-		if _, err := os.Stat(subjectivePath); os.IsNotExist(err) {
-			continue
-		}
+		mcqPath := filepath.Join(topicPath, "mcq")
 
 		// Count questions by level
 		levelCounts := make(map[string]int)
 		totalCount := 0
+		subjectiveCount := 0
+		mcqCount := 0
 
-		// Scan the subjective directory
-		levelDirs, err := os.ReadDir(subjectivePath)
-		if err != nil {
-			continue
-		}
+		// Scan the subjective directory if it exists
+		if _, err := os.Stat(subjectivePath); err == nil {
+			levelDirs, err := os.ReadDir(subjectivePath)
+			if err == nil {
+				for _, levelDir := range levelDirs {
+					if !levelDir.IsDir() {
+						continue
+					}
 
-		for _, levelDir := range levelDirs {
-			if !levelDir.IsDir() {
-				continue
-			}
+					levelName := levelDir.Name()
+					// Extract level (L3, L4, etc.)
+					var level string
+					if strings.HasPrefix(levelName, "L") {
+						// Extract L3, L4, etc. from "L3-baseline" or "L3-bar-raiser"
+						parts := strings.Split(levelName, "-")
+						if len(parts) > 0 {
+							level = parts[0]
+						}
+					}
 
-			levelName := levelDir.Name()
-			// Extract level (L3, L4, etc.)
-			var level string
-			if strings.HasPrefix(levelName, "L") {
-				// Extract L3, L4, etc. from "L3-baseline" or "L3-bar-raiser"
-				parts := strings.Split(levelName, "-")
-				if len(parts) > 0 {
-					level = parts[0]
+					if level == "" {
+						continue
+					}
+
+					// Count markdown files in this level directory
+					levelPath := filepath.Join(subjectivePath, levelName)
+					files, err := os.ReadDir(levelPath)
+					if err != nil {
+						continue
+					}
+
+					count := 0
+					for _, file := range files {
+						if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".md") {
+							filename := strings.ToLower(file.Name())
+							if filename != "readme.md" && filename != "index.md" && filename != "guidelines.md" {
+								count++
+							}
+						}
+					}
+
+					levelCounts[level] += count
+					totalCount += count
+					subjectiveCount += count
 				}
 			}
+		}
 
-			if level == "" {
-				continue
-			}
-
-			// Count markdown files in this level directory
-			levelPath := filepath.Join(subjectivePath, levelName)
-			files, err := os.ReadDir(levelPath)
-			if err != nil {
-				continue
-			}
-
-			count := 0
-			for _, file := range files {
-				if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".md") {
-					filename := strings.ToLower(file.Name())
-					if filename != "readme.md" && filename != "index.md" && filename != "guidelines.md" {
-						count++
+		// Scan the MCQ directory if it exists
+		if _, err := os.Stat(mcqPath); err == nil {
+			files, err := os.ReadDir(mcqPath)
+			if err == nil {
+				for _, file := range files {
+					if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".md") {
+						filename := strings.ToLower(file.Name())
+						if filename != "readme.md" && filename != "index.md" && filename != "guidelines.md" {
+							mcqCount++
+							totalCount++
+						}
 					}
 				}
 			}
-
-			levelCounts[level] += count
-			totalCount += count
 		}
 
 		if totalCount == 0 {
@@ -197,11 +214,13 @@ func (s *Scanner) DiscoverTopics(chaptersPath string) ([]TopicInfo, error) {
 		displayName := formatTopicName(topicName)
 
 		topics = append(topics, TopicInfo{
-			Name:        topicName,
-			DisplayName: displayName,
-			Path:        subjectivePath,
-			LevelCounts: levelCounts,
-			TotalCount:  totalCount,
+			Name:            topicName,
+			DisplayName:     displayName,
+			Path:            subjectivePath,
+			LevelCounts:     levelCounts,
+			TotalCount:      totalCount,
+			MCQCount:        mcqCount,
+			SubjectiveCount: subjectiveCount,
 		})
 	}
 

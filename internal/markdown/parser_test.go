@@ -1,9 +1,13 @@
 package markdown
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseQuestionFile(t *testing.T) {
@@ -749,6 +753,416 @@ Body content`,
 			if gotBody != tt.wantBody {
 				t.Errorf("Body:\ngot:  %q\nwant: %q", gotBody, tt.wantBody)
 			}
+		})
+	}
+}
+
+// Helper function to create temporary MCQ files for testing
+func createTempMCQFile(t *testing.T, content string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "test-mcq.md")
+	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	return tmpFile
+}
+
+// TestMCQFormatCompatibilityMatrix tests every possible valid MCQ format
+func TestMCQFormatCompatibilityMatrix(t *testing.T) {
+	formats := []struct {
+		name           string
+		content        string
+		expectedParse  bool
+		description    string
+	}{
+		{
+			name: "Standard TOML frontmatter with dashes",
+			content: `+++
+id = "test-001"
+type = "mcq"
+level = "L3"
++++
+
+## Question
+What is the capital of France?
+
+## Options
+- A) Paris
+- B) London
+- C) Berlin
+- D) Madrid
+
+## Answer
+A`,
+			expectedParse: true,
+			description: "Most common format in existing content",
+		},
+		{
+			name: "YAML frontmatter variant",
+			content: `---
+id: test-002
+type: mcq
+level: "L4"
+---
+
+## Question
+What is 2 + 2?
+
+## Options
+- A) 3
+- B) 4
+
+## Answer
+B`,
+			expectedParse: true,
+			description: "Alternative frontmatter syntax support",
+		},
+		{
+			name: "Options without dash prefix",
+			content: `+++
+id = "test-003"
+type = "mcq"
++++
+
+## Question
+Select the correct statement:
+
+## Options
+A) Option 1
+B) Option 2
+C) Option 3
+
+## Answer
+C`,
+			expectedParse: true,
+			description: "Cleaner option format without bullet points",
+		},
+		{
+			name: "Options with asterisk bullets",
+			content: `+++
+id = "test-004"
+type = "mcq"
++++
+
+## Question
+Which is correct?
+
+## Options
+* A) Answer A
+* B) Answer B
+* C) Answer C
+
+## Answer
+B`,
+			expectedParse: true,
+			description: "Alternative bullet style",
+		},
+		{
+			name: "Mixed case section headers",
+			content: `+++
+id = "test-005"
+type = "mcq"
++++
+
+## question
+Text here?
+
+## OPTIONS
+- A) First option
+- B) Second option
+
+## answer
+B`,
+			expectedParse: true,
+			description: "Case-insensitive header parsing",
+		},
+		{
+			name: "MCQ with auto-detection (no type field)",
+			content: `+++
+id = "test-006"
+level = "L3"
++++
+
+## Question
+This should be auto-detected as MCQ:
+
+## Options
+- A) Yes
+- B) No
+- C) Maybe
+
+## Answer
+A`,
+			expectedParse: true,
+			description: "Auto-detect MCQ when options and answer present",
+		},
+		{
+			name: "MCQ with explanation",
+			content: `+++
+id = "test-007"
+type = "mcq"
++++
+
+## Question
+What causes seasons?
+
+## Options
+- A) Distance from sun
+- B) Earth's tilt
+- C) Moon's gravity
+
+## Answer
+B
+
+## Explanation
+Earth's tilt causes different amounts of sunlight to reach different parts of the planet throughout the year.`,
+			expectedParse: true,
+			description: "MCQ with detailed explanation",
+		},
+		{
+			name: "Invalid MCQ - Missing answer",
+			content: `+++
+id = "test-008"
+type = "mcq"
++++
+
+## Question
+Missing answer field:
+
+## Options
+- A) Option 1
+- B) Option 2
+
+## [Should have Answer section]`,
+			expectedParse: true, // Should parse but answer field will be empty
+			description: "MCQ with missing answer should still parse",
+		},
+	}
+
+	parser := NewParser()
+	for _, tt := range formats {
+		t.Run(tt.name, func(t *testing.T) {
+			tempFile := createTempMCQFile(t, tt.content)
+			q, err := parser.ParseQuestionFile(tempFile)
+			
+			if tt.expectedParse {
+				require.NoError(t, err, "Format should parse: %s", tt.description)
+				assert.Equal(t, "mcq", q.Type, "Should be detected as MCQ type")
+				assert.NotEmpty(t, q.Options, "Options should be extracted")
+				assert.NotNil(t, q.Options, "Options array should not be nil")
+				
+				// Auto-detection test
+				if tt.name == "MCQ with auto-detection (no type field)" {
+					assert.Equal(t, "mcq", q.Type, "Should auto-detect as MCQ")
+				}
+				
+				// Check answer field (may be empty for some valid formats)
+				if tt.name != "Invalid MCQ - Missing answer" {
+					assert.NotEmpty(t, q.Answer, "Answer should be found")
+				}
+			} else {
+				assert.Error(t, err, "Format should fail: %s", tt.description)
+			}
+		})
+	}
+}
+
+// TestMCQOptionCountBehavior tests different option counts
+func TestMCQOptionCountBehavior(t *testing.T) {
+	testCases := []struct {
+		name         string
+		optionCount  int
+		shouldWork   bool
+		description  string
+	}{
+		{
+			name:        "Two options (binary choice)",
+			optionCount: 2,
+			shouldWork:  true,
+			description: "True/False style questions",
+		},
+		{
+			name:        "Standard four options",
+			optionCount: 4,
+			shouldWork:  true,
+			description: "Most common MCQ format",
+		},
+		{
+			name:        "Six options",
+			optionCount: 6,
+			shouldWork:  true,
+			description: "Extended choice questions",
+		},
+		{
+			name:        "Empty options",
+			optionCount: 0,
+			shouldWork:  true,
+			description: "Empty options section should still parse",
+		},
+	}
+
+	// Helper function to generate MCQ content with N options
+	generateMCQWithNOptions := func(n int) string {
+		var optionsContent string
+		if n > 0 {
+			optionsContent = "## Options\n"
+			for i := 0; i < n; i++ {
+				letter := fmt.Sprintf("%c", 'A'+i)
+				optionsContent += fmt.Sprintf("- %s) Option %d\n", letter, i+1)
+			}
+			optionsContent += "\n## Answer\n" + fmt.Sprintf("%c", 'A') + "\n"
+		} else {
+			optionsContent = "## Options\n\n## Answer\nA\n"
+		}
+		
+		return fmt.Sprintf(`+++
+id = "count-test-%d"
+type = "mcq"
+level = "L3"
++++
+
+## Question
+Test question with %d options:
+
+%s`, n, n, optionsContent)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mcqContent := generateMCQWithNOptions(tc.optionCount)
+			tempFile := createTempMCQFile(t, mcqContent)
+			parser := NewParser()
+			
+			q, err := parser.ParseQuestionFile(tempFile)
+			require.NoError(t, err, "Should parse: %s", tc.description)
+			
+			assert.Equal(t, "mcq", q.Type)
+			if tc.optionCount > 0 {
+				assert.Len(t, q.Options, tc.optionCount, "Should have %d options", tc.optionCount)
+			} else {
+				assert.Len(t, q.Options, 0, "Should have no options")
+			}
+		})
+	}
+}
+
+// TestMCQAnswerValidation tests various answer formats
+func TestMCQAnswerValidation(t *testing.T) {
+	tests := []struct {
+		name          string
+		content       string
+		expectedAnswer string
+		description   string
+	}{
+		{
+			name: "Single letter uppercase",
+			content: `+++
+id = "answer-test-1"
+type = "mcq"
++++
+
+## Question
+Test?
+
+## Options
+- A) Yes
+- B) No
+
+## Answer
+A`,
+			expectedAnswer: "A",
+			description: "Standard single letter answer",
+		},
+		{
+			name: "Single letter lowercase",
+			content: `+++
+id = "answer-test-2"
+type = "mcq"
++++
+
+## Question
+Test?
+
+## Options
+- A) Yes
+- B) No
+
+## Answer
+b`,
+			expectedAnswer: "b",
+			description: "Lowercase answer",
+		},
+		{
+			name: "Letter with parenthesis",
+			content: `+++
+id = "answer-test-3"
+type = "mcq"
++++
+
+## Question
+Test?
+
+## Options
+- A) Yes
+- B) No
+
+## Answer
+A)`,
+			expectedAnswer: "A)",
+			description: "Answer includes formatting",
+		},
+		{
+			name: "Full option text as answer",
+			content: `+++
+id = "answer-test-4"
+type = "mcq"
++++
+
+## Question
+Test?
+
+## Options
+- A) Yes, this is correct
+- B) No, this is wrong
+
+## Answer
+A) Yes, this is correct`,
+			expectedAnswer: "A) Yes, this is correct",
+			description: "Complete option as answer",
+		},
+		{
+			name: "Empty answer",
+			content: `+++
+id = "answer-test-5"
+type = "mcq"
++++
+
+## Question
+Test?
+
+## Options
+- A) Yes
+- B) No
+
+## Answer
+
+## Explanation
+Explanation here`,
+			expectedAnswer: "",
+			description: "Empty answer field",
+		},
+	}
+
+	parser := NewParser()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempFile := createTempMCQFile(t, tt.content)
+			q, err := parser.ParseQuestionFile(tempFile)
+			
+			require.NoError(t, err, "Should parse: %s", tt.description)
+			assert.Equal(t, tt.expectedAnswer, q.Answer, "Answer mismatch")
 		})
 	}
 }
