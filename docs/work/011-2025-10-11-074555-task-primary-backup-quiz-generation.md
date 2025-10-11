@@ -69,9 +69,46 @@ Files with warnings: 8 (optional fields only)
 
 All quiz files passed validation with the `validate-quiz` binary.
 
+## MCQ Questions Added
+
+### Directory Structure
+```
+ddia-quiz-bot/content/chapters/10-mit-6824-primary-backup/mcq/
+├── 01-fail-stop-failures.md
+├── 02-state-transfer-vs-rsm.md
+├── 03-deterministic-execution.md
+├── 04-output-commit.md
+├── 05-split-brain.md
+├── 06-correlated-failures.md
+├── 07-replication-cost.md
+├── 08-non-deterministic-sources.md
+├── 09-network-bandwidth.md
+└── 10-multi-core-challenge.md
+```
+
+### MCQ Topics Covered
+1. **Fail-Stop Failures** - What failures replication can handle
+2. **State Transfer vs RSM** - VMware FT's approach choice
+3. **Deterministic Execution** - Logging requirements for non-determinism
+4. **Output Commit** - When primary can send responses
+5. **Split-Brain Prevention** - Test-and-set mechanism
+6. **Correlated Failures** - Datacenter-wide disasters
+7. **Replication Economics** - Hardware cost considerations
+8. **Non-Deterministic Sources** - What needs logging
+9. **Network Bandwidth** - When RSM is more efficient
+10. **Multi-Core Challenges** - Why VMware FT was single-core only
+
+### MCQ Validation Results
+```
+Total files:         10
+Valid files:         10
+Invalid files:       0
+```
+
 ## Notes
 - Followed the exact format from zookeeper subjective questions
 - Each question includes comprehensive metadata, rubrics, and follow-up patterns
 - Questions progress in difficulty from L3 (junior) to L5 (senior)
 - Both baseline and bar-raiser questions included for thorough assessment
+- MCQ questions follow simple A/B format with clear explanations
 - Content derived from MIT 6.824 Lecture 4 on Primary-Backup Replication
