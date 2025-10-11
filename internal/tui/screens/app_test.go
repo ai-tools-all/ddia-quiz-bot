@@ -153,8 +153,13 @@ func TestAppModelQuestionLoading(t *testing.T) {
 
 		assert.Equal(t, len(topics), len(updatedApp.availableTopics),
 			"Should have discovered topics")
-		assert.NotEqual(t, StateWelcome, updatedApp.state,
-			"Should not be stuck in welcome state after topic discovery")
+		assert.Equal(t, StateWelcome, updatedApp.state,
+			"Should remain on welcome screen until user input")
+
+		model, _ = updatedApp.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		afterInput := model.(ImprovedAppModel)
+		assert.Equal(t, StateModeSelect, afterInput.state,
+			"Enter should advance to mode selection after topics are loaded")
 	}
 }
 
@@ -182,7 +187,7 @@ func TestWelcomeScreenLoadingState(t *testing.T) {
 		view = app.renderWelcome()
 		assert.NotContains(t, view, "Discovering topics...",
 			"Should not show discovering message after topics are loaded")
-		assert.Contains(t, view, "Found: 1 topics",
+		assert.Contains(t, view, "Available topics: 1",
 			"Should show topic count when loaded")
 	})
 
@@ -206,7 +211,7 @@ func TestWelcomeScreenLoadingState(t *testing.T) {
 		view = app.renderWelcome()
 		assert.NotContains(t, view, "Loading questions...",
 			"Should not show loading message after questions are loaded")
-		assert.Contains(t, view, "Loaded: 5 questions",
+		assert.Contains(t, view, "Loaded questions: 5",
 			"Should show question count when loaded")
 	})
 }
@@ -252,9 +257,14 @@ func TestTopicSelectionTransition(t *testing.T) {
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	updated := model.(ImprovedAppModel)
 
-	require.Equal(t, StateTopicSelect, updated.state, "Enter should advance to topic selection when topics exist")
+	require.Equal(t, StateModeSelect, updated.state, "Enter should advance to mode selection when topics exist")
 
-	model, cmd := updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	model, _ = updated.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	modeSelected := model.(ImprovedAppModel)
+	require.Equal(t, StateTopicSelect, modeSelected.state, "Selecting a mode should enter topic selection")
+	require.Equal(t, "subjective", modeSelected.selectedMode)
+
+	model, cmd := modeSelected.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	selected := model.(ImprovedAppModel)
 
 	require.NotNil(t, cmd, "Selecting a topic should trigger follow-up commands")
@@ -345,13 +355,13 @@ func TestResumeMostRecentSessionLoadsState(t *testing.T) {
 	require.NoError(t, err)
 	older.Session.SessionID = "older-session"
 	older.Session.CreatedAt = time.Now().Add(-2 * time.Hour)
-	manager.UpdateResponse(older, "q1", "old answer", 10)
+	manager.UpdateResponse(older, "q1", "subjective", "old answer", 10)
 	require.NoError(t, manager.SaveSession(older))
 
 	newer, err := manager.CreateSessionWithTopic("alice", "subjective", "09-topic", "Topic", app.questions)
 	require.NoError(t, err)
 	newer.Session.SessionID = "newer-session"
-	manager.UpdateResponse(newer, "q1", "latest answer", 5)
+	manager.UpdateResponse(newer, "q1", "subjective", "latest answer", 5)
 	require.NoError(t, manager.SaveSession(newer))
 
 	cmd := app.checkTopicSessionsCmd()
@@ -575,7 +585,7 @@ func TestTextareaResetAndAnswerLoading(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add existing answer for first question
-	app.sessionManager.UpdateResponse(session, "subj-001", "existing answer for q1", 30)
+	app.sessionManager.UpdateResponse(session, "subj-001", "subjective", "existing answer for q1", 30)
 	require.NoError(t, app.sessionManager.SaveSession(session))
 
 	app.currentSession = session
@@ -741,7 +751,7 @@ func TestResumeMCQSession(t *testing.T) {
 	require.NoError(t, err)
 
 	isCorrect := true
-	app.sessionManager.UpdateResponse(session, "mcq-001", "A", 10)
+	app.sessionManager.UpdateResponse(session, "mcq-001", "mcq", "A", 10)
 	// Update the response to include MCQ-specific fields
 	session.Responses[0].QuestionType = "mcq"
 	session.Responses[0].IsCorrect = &isCorrect

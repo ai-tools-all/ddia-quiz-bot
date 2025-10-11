@@ -223,12 +223,24 @@ func (m *Manager) ListIncompleteSessionsForTopic(user string, mode string, topic
 }
 
 // UpdateResponse updates or adds a response to the session
-func (m *Manager) UpdateResponse(session *Session, questionID string, answer string, timeSpent int) {
+func (m *Manager) UpdateResponse(session *Session, questionID string, questionType string, answer string, timeSpent int) {
+	if session == nil {
+		return
+	}
+	if questionType == "" {
+		questionType = "subjective"
+	}
+
 	// Check if response already exists
 	found := false
 	for i := range session.Responses {
 		if session.Responses[i].QuestionID == questionID {
 			session.Responses[i].Answer = answer
+			session.Responses[i].QuestionType = questionType
+			if questionType != "mcq" {
+				session.Responses[i].SelectedOption = ""
+				session.Responses[i].IsCorrect = nil
+			}
 			session.Responses[i].UpdatedAt = time.Now()
 			session.Responses[i].TimeSpentSeconds += timeSpent
 			found = true
@@ -240,6 +252,7 @@ func (m *Manager) UpdateResponse(session *Session, questionID string, answer str
 	if !found {
 		session.Responses = append(session.Responses, Response{
 			QuestionID:       questionID,
+			QuestionType:     questionType,
 			Answer:           answer,
 			UpdatedAt:        time.Now(),
 			TimeSpentSeconds: timeSpent,
