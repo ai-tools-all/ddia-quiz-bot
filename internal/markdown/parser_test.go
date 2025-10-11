@@ -214,7 +214,7 @@ Body without closing marker
 	parser := NewParser()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotFrontmatter, gotBody := parser.extractFrontmatter(tt.content)
+			gotFrontmatter, gotBody, _ := parser.extractFrontmatter(tt.content)
 
 			if gotFrontmatter != tt.wantFrontmatter {
 				t.Errorf("Frontmatter:\ngot:  %q\nwant: %q", gotFrontmatter, tt.wantFrontmatter)

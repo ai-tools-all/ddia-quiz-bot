@@ -355,3 +355,62 @@ This plan adds comprehensive MCQ support to the quiz-tui while:
 - Providing clear UI/UX for different question types
 - Integrating seamlessly with session management
 - Supporting mixed quiz sessions
+
+---
+
+## Implementation Status
+
+### Completed (2025-10-11)
+
+#### Phase 1: Data Models ✅
+- Extended `Question` model with MCQ fields (Type, Options, Answer, Explanation, Hook)
+- Updated tags from `yaml` to `toml` for frontmatter
+- Extended `Card` model with MCQ performance tracking (MCQAccuracy, LastMCQChoice, IncorrectChoices)
+- Updated `Response` model to support MCQ data (IsCorrect, SelectedOption, QuestionType)
+
+#### Phase 2: Parser Extensions ✅
+- Updated markdown parser to support both TOML (+++...+++) and YAML (---...---) frontmatter
+- Added MCQ section parsing (options, answer, explanation, hook)
+- Implemented `parseMCQOptions()` function to parse MCQ options
+- Maintained backward compatibility with existing YAML format
+
+#### Phase 3: TUI Components ✅
+- Created `internal/tui/components/mcq.go` component
+- Implemented navigation (up/down arrows)
+- Implemented selection and submission
+- Added visual feedback (correct/incorrect with colors)
+- Added explanation display toggle
+
+#### Phase 4: State Management ✅
+- Updated `ImprovedAppModel` with MCQ-specific fields
+- Implemented `initializeQuestionComponent()` to detect and initialize correct component
+- Modified `StateQuestion` handler to support both MCQ and subjective inputs
+- Added `saveMCQAnswerCmd()` for MCQ-specific answer saving
+- Updated `nextQuestionMsg` handler to reinitialize components
+
+#### Phase 5: SRS Integration ✅
+- Added `RecordMCQAttempt()` method to Card for MCQ-specific tracking
+- Extended session persistence to include MCQ metadata
+
+#### Phase 6: UI/UX ✅
+- Updated `renderQuestion()` to display MCQ vs subjective differently
+- Added context-aware help text
+- Implemented visual indicators for question type
+
+#### Testing ✅
+- Fixed duplicate function issues
+- Updated parser tests for new signature
+- All markdown parser tests passing
+- Build successful
+
+### Sample MCQ File Created
+Created test MCQ at: `ddia-quiz-bot/content/chapters/11-mit-6824-fault-tolerance/mcq/test-mcq-001.md`
+
+### Pending Items
+
+- [ ] Phase 8.1: Write comprehensive unit tests for MCQ components
+- [ ] Phase 9.1: Add MCQ configuration options to TUIConfig
+- [ ] Integration testing with real quiz sessions
+- [ ] Performance testing with mixed MCQ/subjective sessions
+- [ ] SRS scheduler MCQ-specific review logic
+- [ ] MCQ analytics and reporting

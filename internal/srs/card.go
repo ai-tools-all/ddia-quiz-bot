@@ -35,6 +35,12 @@ type Card struct {
 	AverageTime  int `json:"average_time"`  // Average answer time (seconds)
 	HintsUsed    int `json:"hints_used"`    // Total hints across reviews
 
+	// MCQ specific metrics
+	QuestionType     string   `json:"question_type"`      // "subjective" or "mcq"
+	MCQAccuracy      float64  `json:"mcq_accuracy"`       // MCQ-specific accuracy (0.0-1.0)
+	LastMCQChoice    string   `json:"last_mcq_choice"`    // Track last selected option (A, B, C, D)
+	IncorrectChoices []string `json:"incorrect_choices"`  // Track wrong answer patterns
+
 	// Lifecycle
 	State     CardState `json:"state"`
 	CreatedAt time.Time `json:"created_at"`
@@ -165,4 +171,27 @@ func (c *Card) RetentionRate() float64 {
 		return 0.0
 	}
 	return float64(c.SuccessCount) / float64(c.TotalReviews)
+}
+
+// RecordMCQAttempt records an MCQ-specific review attempt
+func (c *Card) RecordMCQAttempt(selected string, correct bool) {
+	c.LastMCQChoice = selected
+	if !correct && !containsString(c.IncorrectChoices, selected) {
+		c.IncorrectChoices = append(c.IncorrectChoices, selected)
+	}
+	
+	// Update MCQ accuracy
+	if c.TotalReviews > 0 {
+		c.MCQAccuracy = float64(c.SuccessCount) / float64(c.TotalReviews)
+	}
+}
+
+// containsString checks if a string exists in a slice
+func containsString(slice []string, str string) bool {
+	for _, item := range slice {
+		if item == str {
+			return true
+		}
+	}
+	return false
 }

@@ -52,10 +52,13 @@ type QuestionSummary struct {
 
 // Response represents a user's response to a question
 type Response struct {
-	QuestionID      string    `json:"question_id"`
-	Answer          string    `json:"answer"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	TimeSpentSeconds int      `json:"time_spent_seconds"`
+	QuestionID       string    `json:"question_id"`
+	QuestionType     string    `json:"question_type"`      // "subjective" or "mcq"
+	Answer           string    `json:"answer"`
+	IsCorrect        *bool     `json:"is_correct,omitempty"`   // For MCQ, nil for subjective
+	SelectedOption   string    `json:"selected_option,omitempty"` // MCQ: A, B, C, D
+	UpdatedAt        time.Time `json:"updated_at"`
+	TimeSpentSeconds int       `json:"time_spent_seconds"`
 }
 
 // Manager handles session persistence and retrieval

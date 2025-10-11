@@ -13,6 +13,7 @@ import (
 	"github.com/abhishek/ddia-clicker/internal/config"
 	"github.com/abhishek/ddia-clicker/internal/markdown"
 	"github.com/abhishek/ddia-clicker/internal/models"
+	"github.com/abhishek/ddia-clicker/internal/tui/components"
 	"github.com/abhishek/ddia-clicker/internal/tui/session"
 )
 
@@ -47,6 +48,11 @@ type ImprovedAppModel struct {
 	width             int
 	height            int
 	renderer          *glamour.TermRenderer
+	
+	// MCQ specific fields
+	mcqComponent    *components.MCQ
+	currentQType    string  // "subjective" or "mcq"
+	showExplanation bool    // Show MCQ explanation after answer
 }
 
 // NewImprovedAppModel creates a new improved application model
@@ -160,17 +166,43 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case StateQuestion:
-			if msg.String() == "ctrl+s" {
-				// Manual save
-				return m, m.saveCurrentAnswerCmd()
-			} else if msg.String() == "ctrl+n" || msg.String() == "ctrl+enter" {
-				// Save and move to next question
-				return m, m.moveToNextQuestionCmd()
+			if m.currentQType == "mcq" && m.mcqComponent != nil {
+				// MCQ-specific handling
+				if msg.String() == "enter" || msg.String() == " " {
+					if !m.mcqComponent.Submitted {
+						// Submit MCQ answer
+						m.mcqComponent.Submit()
+						return m, m.saveMCQAnswerCmd()
+					} else {
+						// Move to next question after viewing feedback
+						return m, m.moveToNextQuestionCmd()
+					}
+				} else if msg.String() == "e" && m.mcqComponent.Submitted {
+					// Toggle explanation
+					m.mcqComponent.ToggleExplanation()
+				} else if msg.String() == "n" && m.mcqComponent.Submitted {
+					// Next question
+					return m, m.moveToNextQuestionCmd()
+				} else {
+					// Pass to MCQ component for navigation
+					var cmd tea.Cmd
+					m.mcqComponent, cmd = m.mcqComponent.Update(msg)
+					cmds = append(cmds, cmd)
+				}
 			} else {
-				// Pass to textarea
-				var cmd tea.Cmd
-				m.textarea, cmd = m.textarea.Update(msg)
-				cmds = append(cmds, cmd)
+				// Subjective question handling
+				if msg.String() == "ctrl+s" {
+					// Manual save
+					return m, m.saveCurrentAnswerCmd()
+				} else if msg.String() == "ctrl+n" || msg.String() == "ctrl+enter" {
+					// Save and move to next question
+					return m, m.moveToNextQuestionCmd()
+				} else {
+					// Pass to textarea
+					var cmd tea.Cmd
+					m.textarea, cmd = m.textarea.Update(msg)
+					cmds = append(cmds, cmd)
+				}
 			}
 
 		case StateComplete:
@@ -221,6 +253,7 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = StateQuestion
 		m.questionStartTime = time.Now()
+		m.initializeQuestionComponent()
 		m.textarea.Focus()
 		return m, tea.Batch(
 			m.startAutoSaveCmd(),
@@ -248,6 +281,9 @@ func (m ImprovedAppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		if m.currentIndex >= len(m.questions) {
 			m.state = StateComplete
+		} else {
+			// Initialize component for new question
+			m.initializeQuestionComponent()
 		}
 		return m, nil
 	}
@@ -465,37 +501,60 @@ func (m ImprovedAppModel) renderQuestion() string {
 
 	questionBox := questionStyle.Render(rendered)
 
-	// Answer section
-	answerLabel := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("205")).
-		Bold(true).
-		MarginTop(1).
-		Render("Your Answer:")
-
-	textareaView := m.textarea.View()
-
-	// Help text
+	// Answer section - different for MCQ vs subjective
+	var answerSection string
+	var help string
+	
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		MarginTop(1)
 
-	help := helpStyle.Render("Ctrl+N: Next • Ctrl+S: Save • Ctrl+C: Quit")
+	if m.currentQType == "mcq" && m.mcqComponent != nil {
+		// MCQ answer section
+		answerLabel := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Bold(true).
+			MarginTop(1).
+			Render("Select Answer:")
+		
+		mcqView := m.mcqComponent.View()
+		answerSection = fmt.Sprintf("%s\n%s", answerLabel, mcqView)
+		
+		// MCQ-specific help text
+		if !m.mcqComponent.Submitted {
+			help = helpStyle.Render("↑↓: Navigate • Enter/Space: Submit • Ctrl+C: Quit")
+		} else {
+			help = helpStyle.Render("N: Next Question • E: Toggle Explanation • Ctrl+C: Quit")
+		}
+	} else {
+		// Subjective answer section
+		answerLabel := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Bold(true).
+			MarginTop(1).
+			Render("Your Answer:")
+		
+		textareaView := m.textarea.View()
+		answerSection = fmt.Sprintf("%s\n%s", answerLabel, textareaView)
+		
+		// Subjective-specific help text
+		help = helpStyle.Render("Ctrl+N: Next • Ctrl+S: Save • Ctrl+C: Quit")
+	}
 
-	// Auto-save indicator
+	// Auto-save indicator (only for subjective)
 	saveIndicator := ""
-	if time.Since(m.lastSaveTime) < 2*time.Second {
+	if m.currentQType == "subjective" && time.Since(m.lastSaveTime) < 2*time.Second {
 		saveIndicator = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("42")).
 			Render(" ✓ Saved")
 	}
 
 	return fmt.Sprintf(
-		"%s%s\n\n%s\n\n%s\n%s\n\n%s\n",
+		"%s%s\n\n%s\n\n%s\n\n%s\n",
 		progress,
 		saveIndicator,
 		questionBox,
-		answerLabel,
-		textareaView,
+		answerSection,
 		help,
 	)
 }
@@ -693,6 +752,41 @@ type answerSavedMsg struct {
 	err error
 }
 
+// initializeQuestionComponent initializes the appropriate input component based on question type
+func (m *ImprovedAppModel) initializeQuestionComponent() {
+	if m.currentIndex >= len(m.questions) {
+		return
+	}
+	
+	question := m.questions[m.currentIndex]
+	m.currentQType = question.Type
+	
+	// Default to subjective if type not specified
+	if m.currentQType == "" {
+		m.currentQType = "subjective"
+	}
+	
+	if m.currentQType == "mcq" {
+		// Initialize MCQ component
+		m.mcqComponent = components.NewMCQ(question.Options, question.Answer)
+		m.mcqComponent.SetExplanation(question.Explanation)
+		m.showExplanation = false
+	} else {
+		// Clear MCQ component for subjective questions
+		m.mcqComponent = nil
+		
+		// Load existing answer if resuming
+		if m.currentSession != nil {
+			existingResponse := m.sessionManager.GetResponse(m.currentSession, question.ID)
+			if existingResponse != nil {
+				m.textarea.SetValue(existingResponse.Answer)
+			} else {
+				m.textarea.Reset()
+			}
+		}
+	}
+}
+
 func (m ImprovedAppModel) saveCurrentAnswerCmd() tea.Cmd {
 	return func() tea.Msg {
 		timeSpent := int(time.Since(m.questionStartTime).Seconds())
@@ -702,6 +796,38 @@ func (m ImprovedAppModel) saveCurrentAnswerCmd() tea.Cmd {
 		m.sessionManager.UpdateResponse(m.currentSession, questionID, answer, timeSpent)
 		err := m.sessionManager.SaveSession(m.currentSession)
 
+		return answerSavedMsg{err: err}
+	}
+}
+
+func (m ImprovedAppModel) saveMCQAnswerCmd() tea.Cmd {
+	return func() tea.Msg {
+		timeSpent := int(time.Since(m.questionStartTime).Seconds())
+		questionID := m.questions[m.currentIndex].ID
+		
+		if m.mcqComponent == nil {
+			return answerSavedMsg{err: fmt.Errorf("MCQ component not initialized")}
+		}
+		
+		selectedLetter := m.mcqComponent.GetSelectedLetter()
+		isCorrect := m.mcqComponent.IsCorrect()
+		
+		// Create response with MCQ-specific data
+		response := &session.Response{
+			QuestionID:       questionID,
+			QuestionType:     "mcq",
+			Answer:           selectedLetter,
+			IsCorrect:        &isCorrect,
+			SelectedOption:   selectedLetter,
+			UpdatedAt:        time.Now(),
+			TimeSpentSeconds: timeSpent,
+		}
+		
+		// Add response to session
+		m.currentSession.Responses = append(m.currentSession.Responses, *response)
+		m.currentSession.Session.Answered = len(m.currentSession.Responses)
+		
+		err := m.sessionManager.SaveSession(m.currentSession)
 		return answerSavedMsg{err: err}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/abhishek/ddia-clicker/internal/models"
+	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,16 +32,22 @@ func (p *Parser) ParseQuestionFile(filepath string) (*models.Question, error) {
 	}
 
 	// Extract frontmatter
-	frontmatter, body := p.extractFrontmatter(string(content))
+	frontmatter, body, isTOML := p.extractFrontmatter(string(content))
 	if frontmatter == "" {
 		// No frontmatter, try to parse as pure markdown
 		return p.parseMarkdownBody(body)
 	}
 
-	// Parse YAML frontmatter
+	// Parse frontmatter (TOML or YAML)
 	var metadata map[string]interface{}
-	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
-		return nil, fmt.Errorf("failed to parse frontmatter: %w", err)
+	if isTOML {
+		if err := toml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+			return nil, fmt.Errorf("failed to parse TOML frontmatter: %w", err)
+		}
+	} else {
+		if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+			return nil, fmt.Errorf("failed to parse YAML frontmatter: %w", err)
+		}
 	}
 
 	question := &models.Question{}
@@ -75,20 +82,31 @@ func (p *Parser) ParseQuestionFile(filepath string) (*models.Question, error) {
 	return question, nil
 }
 
-// extractFrontmatter separates YAML frontmatter from markdown body
-func (p *Parser) extractFrontmatter(content string) (string, string) {
-	if !strings.HasPrefix(content, "---\n") {
-		return "", content
+// extractFrontmatter separates TOML frontmatter from markdown body
+// Supports both TOML (+++...+++) and legacy YAML (---...---) formats
+// Returns: frontmatter content, body content, isTOML boolean
+func (p *Parser) extractFrontmatter(content string) (string, string, bool) {
+	// Try TOML format first (+++...+++)
+	if strings.HasPrefix(content, "+++\n") {
+		tomlRegex := regexp.MustCompile(`(?s)^\+\+\+\n(.*?)\n\+\+\+`)
+		if matches := tomlRegex.FindStringSubmatch(content); len(matches) >= 2 {
+			frontmatter := matches[1]
+			body := strings.TrimPrefix(content, matches[0])
+			return frontmatter, body, true
+		}
+	}
+	
+	// Fallback to YAML format (---...---) for backward compatibility
+	if strings.HasPrefix(content, "---\n") {
+		matches := p.frontmatterRegex.FindStringSubmatch(content)
+		if len(matches) >= 2 {
+			frontmatter := matches[1]
+			body := strings.TrimPrefix(content, matches[0])
+			return frontmatter, body, false
+		}
 	}
 
-	matches := p.frontmatterRegex.FindStringSubmatch(content)
-	if len(matches) >= 2 {
-		frontmatter := matches[1]
-		body := strings.TrimPrefix(content, matches[0])
-		return frontmatter, body
-	}
-
-	return "", content
+	return "", content, false
 }
 
 // parseBody extracts question details from markdown body
@@ -153,6 +171,14 @@ func (p *Parser) saveSection(section, content string, question *models.Question)
 		question.SampleAcceptable = content
 	} else if sectionNormalized == "evaluation rubric" || sectionLower == "rubric" {
 		question.EvaluationRubric = p.parseRubricSection(content)
+	} else if sectionLower == "options" || sectionNormalized == "answer options" {
+		question.Options = p.parseMCQOptions(content)
+	} else if sectionLower == "answer" || sectionNormalized == "correct answer" {
+		question.Answer = strings.TrimSpace(content)
+	} else if sectionLower == "explanation" {
+		question.Explanation = content
+	} else if sectionLower == "hook" || sectionNormalized == "engagement hook" {
+		question.Hook = content
 	}
 }
 
@@ -210,6 +236,33 @@ func (p *Parser) parseRubricSection(content string) map[string]string {
 	}
 	
 	return rubric
+}
+
+// parseMCQOptions parses MCQ options from content
+// Supports formats like "- A) option text" or "A) option text"
+func (p *Parser) parseMCQOptions(content string) []string {
+	var options []string
+	lines := strings.Split(content, "\n")
+	
+	// Regex to match: optional bullet/dash, letter with parenthesis, then text
+	// Examples: "- A) text", "A) text", "* B) text"
+	optionRegex := regexp.MustCompile(`^[\s\-\*•]*([A-Za-z])\)\s*(.+)`)
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		if matches := optionRegex.FindStringSubmatch(line); len(matches) > 2 {
+			// Format: "Letter) Text"
+			letter := strings.ToUpper(matches[1])
+			text := strings.TrimSpace(matches[2])
+			options = append(options, letter+") "+text)
+		}
+	}
+	
+	return options
 }
 
 // parseMarkdownBody attempts to parse a pure markdown file without frontmatter
