@@ -82,12 +82,6 @@ func GenerateCombinedTOC(results map[string][]Header, opts Options) string {
 		return ""
 	}
 
-	if len(results) == 1 {
-		for _, headers := range results {
-			return GenerateTOC(headers, opts)
-		}
-	}
-
 	var sb strings.Builder
 
 	switch opts.Format {
@@ -95,7 +89,7 @@ func GenerateCombinedTOC(results map[string][]Header, opts Options) string {
 		return generateCombinedJSON(results)
 	case "text":
 		for path, headers := range results {
-			sb.WriteString(fmt.Sprintf("%s\n", path))
+			sb.WriteString(fmt.Sprintf("%s\n", filepath.Base(path)))
 			sb.WriteString(GenerateText(FilterByDepth(headers, opts.MaxDepth)))
 			sb.WriteString("\n")
 		}
