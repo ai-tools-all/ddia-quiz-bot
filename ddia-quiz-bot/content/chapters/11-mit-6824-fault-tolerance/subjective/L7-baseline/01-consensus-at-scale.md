@@ -142,3 +142,10 @@ This design balances theoretical soundness with practical engineering, providing
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 7-8 min answer + 3-4 min discussion
 - **Common next topics**: Blockchain consensus, global state machines, planet-scale systems
+
+## assistant_answer
+Use hierarchical consensus: regional Raft/Paxos shards for locality and throughput, plus a lightweight global coordinator for cross-region ordering. Employ MVCC, locality-aware sharding, DR replicas for RTO≤5s, and batching/pipelining to scale to 100k writes/s; optimize leader placement and failover to meet 99.99% availability.
+
+## improvement_suggestions
+- Require explicit SLA math (quorum RTTs, shard counts, bandwidth budgets) tied to 100k writes/s and 99.99% availability.
+- Ask for a 5-year evolution plan (time sync choices, PQ crypto migration, data sovereignty strategy).

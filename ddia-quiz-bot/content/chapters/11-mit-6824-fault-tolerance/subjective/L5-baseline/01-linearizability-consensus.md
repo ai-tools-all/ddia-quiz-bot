@@ -78,3 +78,10 @@ estimated_time: 7-9 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 4-5 min answer + 3-4 min discussion
 - **Common next topics**: Jepsen testing, session guarantees, multi-datacenter consensus
+
+## assistant_answer
+Raft linearizes by establishing a single committed log order via leader-based consensus and applying operations identically on all replicas (state machine replication). Exactly-once semantics use client IDs and monotonically increasing sequence numbers to dedupe retries and return cached results. Reads can go through commit, or use ReadIndex/lease reads while preserving linearizability.
+
+## improvement_suggestions
+- Ask for the dedup table schema (clientID→lastSeq, result) and eviction/GC strategy.
+- Require comparison of commit-path reads vs ReadIndex vs leader leases, including safety preconditions and trade-offs.

@@ -84,3 +84,10 @@ What is the highest index that can be committed? Walk through S1's process of ac
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 3-4 min answer + 3-4 min discussion
 - **Common next topics**: Leader completeness, election restriction, safety proof
+
+## assistant_answer
+A leader advances commitIndex only for entries from its current term once they’re majority-replicated; this indirectly commits all prior entries. Allowing commitment of older-term entries directly can cause the Figure 8 safety violation where an “apparently committed” entry is later lost after leadership changes. The rule preserves Leader Completeness and prevents retroactive uncommit.
+
+## improvement_suggestions
+- Require a concrete 5-node Figure 8 walkthrough with explicit indices/terms to illustrate the violation.
+- Ask candidates to state and connect the Leader Completeness property to the commitment rule.

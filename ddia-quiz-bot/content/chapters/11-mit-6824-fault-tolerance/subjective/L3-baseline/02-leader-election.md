@@ -75,3 +75,10 @@ estimated_time: 5-7 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 2-3 min answer + 3-4 min discussion
 - **Common next topics**: Log replication, term numbers, safety properties
+
+## assistant_answer
+On missing heartbeats for a randomized election timeout, a follower increments its term, becomes a candidate, votes for itself, and sends RequestVote RPCs. Voters grant if they haven’t voted this term and the candidate’s log is at least as up-to-date (compare lastLogTerm, then lastLogIndex). A majority makes it leader; otherwise, the candidate retries in a new term.
+
+## improvement_suggestions
+- Require the precise “up-to-date” rule (lastLogTerm first, then lastLogIndex) in answers.
+- Ask to explain split-vote resolution and specify typical timeout ranges to test practical understanding.

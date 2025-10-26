@@ -75,3 +75,10 @@ estimated_time: 7-10 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 3-4 min answer + 4-6 min discussion
 - **Common next topics**: Byzantine failures, consensus impossibility, partition tolerance strategies
+
+## assistant_answer
+The majority side (A,B,C) continues; A stays leader, can replicate and commit. The minority (D,E) cannot reach quorum, so no leader and no writes. When the network heals, D and E receive AppendEntries from the leader (with current/higher term), step down if needed, and catch up by reconciling logs from the divergence point; safety is preserved throughout.
+
+## improvement_suggestions
+- Add a variant where the original leader is in the minority to force discussion of leader step-down and new election on the majority side.
+- Ask for client-visible behavior (timeouts, retries, error codes) during the partition and healing.

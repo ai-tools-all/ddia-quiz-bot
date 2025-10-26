@@ -75,3 +75,10 @@ estimated_time: 5-7 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 2-3 min answer + 3-4 min discussion
 - **Common next topics**: Leader election, consensus protocols, Byzantine failures
+
+## assistant_answer
+Split-brain is when multiple nodes simultaneously believe they are leader (often due to a network partition), leading to conflicting writes and inconsistent state. Majority quorums ensure only one partition can elect a leader; the minority cannot reach quorum and must reject writes, preserving safety.
+
+## improvement_suggestions
+- Add a concrete 5-node partition scenario and require explicit quorum math in the answer.
+- Contrast majority voting with “two nodes agree” in a 3-node cluster to highlight quorum uniqueness and why majority is required.

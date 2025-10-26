@@ -79,3 +79,10 @@ estimated_time: 7-9 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 4-5 min answer + 3-4 min discussion
 - **Common next topics**: Byzantine consensus, blockchain consensus, Multi-Paxos
+
+## assistant_answer
+Immediate switching risks two disjoint majorities electing different leaders. Raft uses joint consensus: transition C_old → C_old+new (decisions need majorities of both) → C_new, with configurations recorded as log entries. This guarantees there’s never a period where two independent leaders can be elected and lets new servers catch up safely.
+
+## improvement_suggestions
+- Require explicit quorum math during joint consensus (e.g., 2-from-old AND 3-from-new in a 3→5 change).
+- Ask for a safe no-overlap migration plan and the availability implications at each step.

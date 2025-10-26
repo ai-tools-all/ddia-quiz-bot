@@ -96,3 +96,10 @@ This provides Byzantine resistance where needed while maintaining performance fo
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 5-7 min answer + 3-3 min discussion
 - **Common next topics**: Blockchain consensus, threshold cryptography, secure multiparty computation
+
+## assistant_answer
+BFT tolerates arbitrary/malicious behavior (needs 3f+1 replicas, cryptographic auth, multi-phase commits), while Raft tolerates crash faults with 2f+1 and simpler protocols. Choose BFT across untrusted parties (cross-org, public chains); a hybrid uses BFT between organizations and Raft within each organization, with bridges and selective anchoring of critical state.
+
+## improvement_suggestions
+- Ask for a specific BFT protocol choice (PBFT/HotStuff/Tendermint) and view-change handling details.
+- Require analysis of cryptographic overhead and the use of signature aggregation/threshold signatures.

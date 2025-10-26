@@ -78,3 +78,10 @@ estimated_time: 6-8 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 3-4 min answer + 3-4 min discussion
 - **Common next topics**: Commitment rules, log matching property, election safety
+
+## assistant_answer
+Terms are monotonically increasing logical epochs persisted across crashes and attached to all RPCs. Seeing a higher term causes immediate update and step-down, so stale leaders can’t overwrite newer decisions; followers reject lower-term messages and leaders relinquish authority on higher-term responses. Voting once per term ensures at most one leader per term.
+
+## improvement_suggestions
+- Add a scenario requiring the stale leader to discover staleness in a single RPC/response to test term propagation.
+- Require explicit mention of “vote once per term” and how it enforces single-leader per term.

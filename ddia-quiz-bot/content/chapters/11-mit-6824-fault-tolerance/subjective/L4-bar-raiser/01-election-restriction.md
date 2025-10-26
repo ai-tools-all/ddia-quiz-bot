@@ -84,3 +84,10 @@ Entries through index 4 are committed. S3 crashes. Can S4 become leader in term 
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 4-5 min answer + 4-5 min discussion
 - **Common next topics**: Safety proof, liveness properties, reconfiguration
+
+## assistant_answer
+Votes are granted only to candidates with “up-to-date” logs: compare lastLogTerm first (higher wins), then lastLogIndex on tie. Quorum overlap ensures at least one voter holding any committed entry will refuse out-of-date candidates, so only leaders that contain all committed entries can win—preserving log completeness and preventing rollback.
+
+## improvement_suggestions
+- Request a brief proof sketch using quorum intersection to justify why committed entries can’t be lost.
+- Include a counterexample showing how length-only comparison lets an old long log defeat a more recent short log.

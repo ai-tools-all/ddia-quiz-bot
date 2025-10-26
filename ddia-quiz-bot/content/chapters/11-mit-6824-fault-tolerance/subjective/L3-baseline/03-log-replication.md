@@ -75,3 +75,10 @@ estimated_time: 5-7 minutes
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 2-3 min answer + 3-4 min discussion
 - **Common next topics**: Commitment rules, safety properties, log compaction
+
+## assistant_answer
+The leader replicates entries via AppendEntries, including prevLogIndex/prevLogTerm to enforce the Log Matching Property. Followers reject on mismatch; the leader backs up nextIndex to find the divergence, the follower deletes conflicting suffix, then appends the leader’s entries. Majority replication precedes commitment, so committed entries appear in the same order on all servers.
+
+## improvement_suggestions
+- Include a concrete mismatch example (indices/terms) and require candidates to walk the retry/backoff sequence.
+- Ask for discussion of batching/backpressure strategies and their impact on catch-up performance.

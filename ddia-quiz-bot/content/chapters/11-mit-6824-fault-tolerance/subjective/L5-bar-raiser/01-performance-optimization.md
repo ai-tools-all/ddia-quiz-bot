@@ -91,3 +91,10 @@ At 10k ops/sec with 5 servers, each follower processes 20k messages/sec (AppendE
 - **Evaluation rubric**: See GUIDELINES.md
 - **Time expectation**: 5-6 min answer + 4-6 min discussion
 - **Common next topics**: CockroachDB architecture, etcd optimizations, TiKV design
+
+## assistant_answer
+Use batching (group commit) and pipelining to amortize RPC/fsync costs, parallelize leader I/O and replication, and employ efficient storage (preallocated WAL, NVMe, grouped fsync). Scale via multi-Raft sharding and backpressure to hit 10k writes/s while preserving ordering and durability; optimize reads with leases when safe.
+
+## improvement_suggestions
+- Specify a latency/throughput budget (e.g., batch window, fsync cadence, network RTTs) and bottleneck analysis.
+- Require a rollback/compensation plan for partial batch failures and leader changes mid-pipeline.
