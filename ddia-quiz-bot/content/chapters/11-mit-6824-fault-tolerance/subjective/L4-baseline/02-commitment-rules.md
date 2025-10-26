@@ -91,3 +91,14 @@ A leader advances commitIndex only for entries from its current term once theyâ€
 ## improvement_suggestions
 - Require a concrete 5-node Figure 8 walkthrough with explicit indices/terms to illustrate the violation.
 - Ask candidates to state and connect the Leader Completeness property to the commitment rule.
+
+## improvement_exercises
+### exercise_1 - Figure 8 Walkthrough
+**Question**: "Construct a 5-node timeline showing a term-2 entry replicated to a majority but not committed, a term-3 leader without it, and why attempting to commit it in term 3/4 can lead to its loss."
+
+**Sample answer**: "Term2 L2 appends X@i to S1,S2,S3, then crashes pre-commit. Term3 L3 (without X@i) is elected by S3,S4,S5. If L3 could commit X@i, then crashes, term4 L4 lacking X@i could be elected; now X@i can be overwrittenâ€”violating safety. Hence only current-term entries can advance commitIndex; earlier entries commit indirectly."
+
+### exercise_2 - Leader Completeness Link
+**Question**: "State Leader Completeness and explain how the current-term-only commit rule helps maintain it across leader changes."
+
+**Sample answer**: "Leader Completeness: if an entry is committed, it must appear in the logs of all future leaders. Current-term-only commitment ensures any committed prefix includes a current-term entry replicated on a majority; due to quorum overlap and election restriction, future leaders must contain that prefix."

@@ -103,3 +103,14 @@ BFT tolerates arbitrary/malicious behavior (needs 3f+1 replicas, cryptographic a
 ## improvement_suggestions
 - Ask for a specific BFT protocol choice (PBFT/HotStuff/Tendermint) and view-change handling details.
 - Require analysis of cryptographic overhead and the use of signature aggregation/threshold signatures.
+
+## improvement_exercises
+### exercise_1 - Protocol Choice and View Change
+**Question**: "Pick PBFT, HotStuff, or Tendermint for an inter-org consortium. Justify the choice and outline its view/leader change process."
+
+**Sample answer**: "HotStuff: linear message complexity with chained pipelining; simpler view change by carrying QC (quorum certificate) to the next leader. PBFT: 3-phase with complex view change; Tendermint: lock/unlock on rounds with proposer rotation. HotStuff balances simplicity and throughput for WAN."
+
+### exercise_2 - Crypto Overhead and Aggregation
+**Question**: "Estimate the cost of per-message signatures at 10k TPS and explain how threshold signatures or BLS aggregation help."
+
+**Sample answer**: "At 10k TPS with 3 phases and 7 validators, naive signing/verifying saturates CPU. BLS aggregation combines many signatures into one, reducing verification cost and bandwidth; threshold signatures allow a single combined signature once ≥t shares collected, lowering message size and verification work."

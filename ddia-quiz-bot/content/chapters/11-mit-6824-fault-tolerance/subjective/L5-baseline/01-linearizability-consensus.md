@@ -85,3 +85,14 @@ Raft linearizes by establishing a single committed log order via leader-based co
 ## improvement_suggestions
 - Ask for the dedup table schema (clientID→lastSeq, result) and eviction/GC strategy.
 - Require comparison of commit-path reads vs ReadIndex vs leader leases, including safety preconditions and trade-offs.
+
+## improvement_exercises
+### exercise_1 - Deduplication Table Design
+**Question**: "Design the dedup/request cache schema to ensure exactly-once semantics across leader failover. Include eviction and recovery."
+
+**Sample answer**: "Map clientID → {lastSeq, lastResult}. On apply, if seq==lastSeq return cached result; if seq>lastSeq, execute and update; if seq<lastSeq, ignore and return cached. Persist in the state machine or WAL-snapshots; evict using LRU with TTL per client session; ensure snapshot carries table contents for recovery."
+
+### exercise_2 - Read Path Comparison
+**Question**: "Compare leader-commit reads, ReadIndex, and lease reads: latency, safety assumptions, and failure modes."
+
+**Sample answer**: "Commit reads: highest latency, strongest (no extra assumptions). ReadIndex: single RTT to confirm leader’s commitIndex ≥ read index; safe without clocks, requires leader availability. Lease reads: lowest latency but need bounded clock skew and lease validity; unsafe if leader’s lease time isn’t truly exclusive due to skew or pause-the-world events."

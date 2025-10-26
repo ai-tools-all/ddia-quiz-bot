@@ -149,3 +149,14 @@ Use hierarchical consensus: regional Raft/Paxos shards for locality and throughp
 ## improvement_suggestions
 - Require explicit SLA math (quorum RTTs, shard counts, bandwidth budgets) tied to 100k writes/s and 99.99% availability.
 - Ask for a 5-year evolution plan (time sync choices, PQ crypto migration, data sovereignty strategy).
+
+## improvement_exercises
+### exercise_1 - SLA Math and Capacity
+**Question**: "Show the math to reach 100k writes/s: number of shards, per-shard throughput, cross-region commit RTT assumptions, and bandwidth per region."
+
+**Sample answer**: "1,000 shards × 100 wps = 100k wps. Cross-region RTT 100–150ms implies 1–2 in-flight batches per shard with pipelining; per-shard batch size 16–32. If each write ~1KB replicated to 3 regions, per region egress ≈ (100k×1KB×2 copies)/sec ≈ 200 MB/s aggregate; distribute across regions proportionally."
+
+### exercise_2 - 5-Year Evolution Plan
+**Question**: "Outline a pragmatic 5-year roadmap addressing time sync, crypto migration to PQC, and data sovereignty."
+
+**Sample answer**: "Years 1–2: HLC+NTP, per-transaction consistency levels, cost-aware placement. Years 2–3: Hardware timestamping (PTP), RDMA replication, adaptive leader placement. Years 3–4: PQC hybrid mode (X25519+Kyber), ledger anchoring for audit. Years 4–5: Regional computation enclaves, ZK-proofs for ordering, sovereign shards with MPC for cross-border flows."

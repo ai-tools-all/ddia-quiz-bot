@@ -86,3 +86,14 @@ Immediate switching risks two disjoint majorities electing different leaders. Ra
 ## improvement_suggestions
 - Require explicit quorum math during joint consensus (e.g., 2-from-old AND 3-from-new in a 3→5 change).
 - Ask for a safe no-overlap migration plan and the availability implications at each step.
+
+## improvement_exercises
+### exercise_1 - Joint Consensus Quorum Math
+**Question**: "C_old={A,B,C}, C_new={A,B,D,E,F}. What is the minimal set of servers to commit an entry during joint consensus? Give two valid combinations."
+
+**Sample answer**: "Need majorities from both: 2 of {A,B,C} and 3 of {A,B,D,E,F}. Examples: {A,B,C,D,E} (A,B satisfy both), or {A,C,D,E,F}."
+
+### exercise_2 - No-Overlap Migration Plan
+**Question**: "Migrate {A,B,C} → {D,E,F} safely with no overlap initially. Provide steps and availability implications."
+
+**Sample answer**: "1) Add D,E,F as learners; catch up. 2) Commit C_old+new over {A,B,C,D,E,F}. 3) Commit C_new={D,E,F}. Availability: middle phase requires majority of 6 (4 nodes), increasing failure sensitivity; final removal restores 3-node quorum."

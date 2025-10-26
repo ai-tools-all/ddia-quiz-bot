@@ -85,3 +85,14 @@ Terms are monotonically increasing logical epochs persisted across crashes and a
 ## improvement_suggestions
 - Add a scenario requiring the stale leader to discover staleness in a single RPC/response to test term propagation.
 - Require explicit mention of “vote once per term” and how it enforces single-leader per term.
+
+## improvement_exercises
+### exercise_1 - One-Message Staleness Detection
+**Question**: "Leader L at term 5 is partitioned. Cluster advances to term 8. On healing, what’s the minimal interaction for L to step down, and why is it sufficient?"
+
+**Sample answer**: "A single AppendEntries (or RequestVote response) from a node with term=8. L updates its term to 8 and immediately steps down upon seeing the higher term, per Raft’s rule."
+
+### exercise_2 - Vote-Once-Per-Term Implication
+**Question**: "Explain why 'vote once per term' combined with majority requirement prevents two leaders in the same term, even under network delay."
+
+**Sample answer**: "A leader needs >N/2 votes; each voter grants at most one vote per term. Two different candidates cannot both gather >N/2 distinct votes in the same term because that would require at least one voter to vote twice, violating the rule."

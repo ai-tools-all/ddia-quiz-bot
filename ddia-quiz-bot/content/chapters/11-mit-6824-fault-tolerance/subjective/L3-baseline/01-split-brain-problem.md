@@ -82,3 +82,14 @@ Split-brain is when multiple nodes simultaneously believe they are leader (often
 ## improvement_suggestions
 - Add a concrete 5-node partition scenario and require explicit quorum math in the answer.
 - Contrast majority voting with “two nodes agree” in a 3-node cluster to highlight quorum uniqueness and why majority is required.
+
+## improvement_exercises
+### exercise_1 - Quorum Math Scenario (5 nodes)
+**Question**: "A 5-node cluster partitions into {A,B} and {C,D,E}. Which side can elect a leader and why? If another temporary split {A,C} and {B,D,E} occurred, analyze leader election again."
+
+**Sample answer**: "{C,D,E} has 3 nodes (>2), so it can form a majority and elect a leader; {A,B} cannot. In the {A,C} vs {B,D,E} split, {B,D,E} again has 3 and can elect; {A,C} (2) cannot. Majority uniqueness guarantees at most one leader."
+
+### exercise_2 - Why 'two-of-three' is unsafe
+**Question**: "In a 3-node system, if the rule were 'any two nodes can agree' instead of majority, show how both {A,B} and {B,C} could proceed independently after a partition, and explain the inconsistency that results."
+
+**Sample answer**: "With 'two-of-three', both {A,B} and {B,C} quorums can exist simultaneously (overlap at B). Each could accept different writes, producing conflicting histories. Majority (>1.5 → 2) with strict quorum intersection semantics avoids two independent decision groups."

@@ -91,3 +91,14 @@ Votes are granted only to candidates with “up-to-date” logs: compare lastLog
 ## improvement_suggestions
 - Request a brief proof sketch using quorum intersection to justify why committed entries can’t be lost.
 - Include a counterexample showing how length-only comparison lets an old long log defeat a more recent short log.
+
+## improvement_exercises
+### exercise_1 - Quorum Intersection Proof Sketch
+**Question**: "Provide a concise proof sketch that any leader elected under the up-to-date rule must contain all committed entries."
+
+**Sample answer**: "Committed entries reside on a majority M. A winning candidate needs majority V. M∩V ≠ ∅. Some voter x∈M∩V has the committed entry. x’s up-to-date check rejects candidates lacking that entry. Therefore, any winner must include the entry."
+
+### exercise_2 - Length-Only Counterexample
+**Question**: "Show how a candidate with a longer log but older last term could beat a shorter log with a newer last term if we ignored terms. What safety issue arises?"
+
+**Sample answer**: "Candidate A: lastTerm=2, length=10; Candidate B: lastTerm=3, length=9. Length-only allows A to win, but A may lack a committed term-3 entry, enabling rollback. Comparing term first prevents this."

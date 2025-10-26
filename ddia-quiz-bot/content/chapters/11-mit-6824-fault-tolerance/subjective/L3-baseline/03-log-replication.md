@@ -82,3 +82,14 @@ The leader replicates entries via AppendEntries, including prevLogIndex/prevLogT
 ## improvement_suggestions
 - Include a concrete mismatch example (indices/terms) and require candidates to walk the retry/backoff sequence.
 - Ask for discussion of batching/backpressure strategies and their impact on catch-up performance.
+
+## improvement_exercises
+### exercise_1 - Consistency Check Walkthrough
+**Question**: "Leader has [1:A(1),2:B(1),3:D(2),4:E(2)], follower has [1:A(1),2:B(1),3:C(2)]. Show the prevLogIndex/prevLogTerm sequence and resulting mutations on the follower."
+
+**Sample answer**: "Leader sends prevLogIndex=4,prevLogTerm=2 → follower lacks index 4 → reject. Leader retries prevLogIndex=3,prevLogTerm=2 → follower has 3:term2 but value C ≠ D; terms match so follower deletes from index 3 onward, then appends D(2),E(2). Final follower: [1:A(1),2:B(1),3:D(2),4:E(2)]."
+
+### exercise_2 - Batching and Backpressure
+**Question**: "A follower is 10,000 entries behind. Describe an efficient catch-up strategy that balances throughput and avoids overwhelming the follower or network."
+
+**Sample answer**: "Use exponential backoff to find the match point, then batch large contiguous ranges (e.g., 64–256 entries per AppendEntries), apply flow-control based on follower acks, and throttle to maintain target in-flight bytes. Combine with snapshot install if the gap exceeds snapshot threshold."

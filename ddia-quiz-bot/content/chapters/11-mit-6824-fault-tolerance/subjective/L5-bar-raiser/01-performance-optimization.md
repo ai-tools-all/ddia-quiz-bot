@@ -98,3 +98,14 @@ Use batching (group commit) and pipelining to amortize RPC/fsync costs, parallel
 ## improvement_suggestions
 - Specify a latency/throughput budget (e.g., batch window, fsync cadence, network RTTs) and bottleneck analysis.
 - Require a rollback/compensation plan for partial batch failures and leader changes mid-pipeline.
+
+## improvement_exercises
+### exercise_1 - Performance Budget
+**Question**: "Propose a target budget to reach 10k writes/s with 5 nodes (batch size, batching window, expected RTT, fsync grouping). Identify bottlenecks and metrics to monitor."
+
+**Sample answer**: "Batch size 16–32, 0.5–1ms window; RTT ~0.5–1ms (DC-local), group fsync every 1–2ms. Bottlenecks: leader CPU serialization, NIC bandwidth, WAL fsync. Monitor: p50/p99 commit latency, in-flight bytes per follower, fsync time, dropped acks, CPU%."
+
+### exercise_2 - Rollback Handling
+**Question**: "A leader crashes mid-pipeline with partially replicated batches. Describe how a new leader safely resumes without double-applying or violating order."
+
+**Sample answer**: "Use matchIndex/nextIndex to resume replication at last confirmed index; new leader only commits entries with majority acks, re-sends uncommitted suffix, and state machine dedup (clientID,seq) suppresses double execution. Maintain log order and re-apply idempotently."

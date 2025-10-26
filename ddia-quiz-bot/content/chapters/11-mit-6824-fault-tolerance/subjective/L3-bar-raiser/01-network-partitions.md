@@ -82,3 +82,14 @@ The majority side (A,B,C) continues; A stays leader, can replicate and commit. T
 ## improvement_suggestions
 - Add a variant where the original leader is in the minority to force discussion of leader step-down and new election on the majority side.
 - Ask for client-visible behavior (timeouts, retries, error codes) during the partition and healing.
+
+## improvement_exercises
+### exercise_1 - Leader-in-Minority Variant
+**Question**: "Partition into {A,B} and {C,D,E} with original leader A. Who becomes leader and when does A step down?"
+
+**Sample answer**: "{C,D,E} elects a new leader after timeouts; A remains leader until it receives a higher-term RPC/response, then steps down."
+
+### exercise_2 - Client Experience
+**Question**: "List the expected client symptoms when pinned to the minority side, and the recovery behavior once healing occurs. Include write and read paths."
+
+**Sample answer**: "Writes: timeouts or errors due to lack of quorum; reads: potentially stale or rejected if enforced via leader. After healing, clients should retry/redirect to the new leader; dedup tables prevent double execution of retried writes."

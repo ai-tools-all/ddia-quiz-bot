@@ -82,3 +82,14 @@ On missing heartbeats for a randomized election timeout, a follower increments i
 ## improvement_suggestions
 - Require the precise “up-to-date” rule (lastLogTerm first, then lastLogIndex) in answers.
 - Ask to explain split-vote resolution and specify typical timeout ranges to test practical understanding.
+
+## improvement_exercises
+### exercise_1 - Up-to-date Rule Drill
+**Question**: "Candidate S has lastLogIndex=10,lastLogTerm=3. Voter V has lastLogIndex=11,lastLogTerm=2. Should V grant its vote to S? Explain using the precise rule."
+
+**Sample answer**: "Yes. Compare lastLogTerm first: 3 > 2, so S is more up-to-date even though its log is shorter, therefore V can grant its vote."
+
+### exercise_2 - Split Vote Recovery
+**Question**: "Two candidates start simultaneously in a 5-node cluster, each gets 2 votes. Describe how randomized timeouts and term increments resolve this and give a typical timeout range."
+
+**Sample answer**: "Neither has majority; both time out and start a new election with higher term. Randomized timeouts (e.g., 150–300ms) reduce collision probability so one candidate typically times out first next round and wins a majority."
