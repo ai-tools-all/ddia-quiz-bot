@@ -50,7 +50,8 @@ ddia-quiz-bot/content/chapters/[NUMBER]-mit-6824-cops-causal-consistency/
 - [x] Generate L6 subjective questions (2)
 - [x] Create folder structure
 - [x] Write all question files
-- [ ] Commit and push
+- [x] Add 10 more advanced questions (user request)
+- [ ] Commit and push final set
 
 ## Key Concepts to Cover
 
@@ -85,10 +86,13 @@ ddia-quiz-bot/content/chapters/[NUMBER]-mit-6824-cops-causal-consistency/
 - 17:37 - Created folder structure for chapter 15
 - 17:38 - Generated and wrote all 6 MCQ questions
 - 17:39 - Generated and wrote all subjective questions (L3-L6, 2 per level)
-- 17:40 - Completed all quiz generation
+- 17:40 - Completed initial quiz generation
+- 17:43 - Added 10 more advanced questions for deeper practical testing
 
 ## Summary
 Successfully created comprehensive COPS Causal Consistency quiz with:
+
+### Initial Set (14 questions):
 - **6 MCQ questions** covering: eventual consistency problem, dependency tracking, strawman solutions, visibility rules, causal guarantees, and trade-offs
 - **8 subjective questions** across 4 levels:
   - L3: Basic operation flow and dependency satisfaction
@@ -96,4 +100,23 @@ Successfully created comprehensive COPS Causal Consistency quiz with:
   - L5: Comparison with alternatives and conflict resolution
   - L6: Partition tolerance and application design
 
-All questions follow the established format and difficulty progression.
+### Advanced Set (10 additional questions):
+- **4 MCQ questions** covering:
+  - Lamport clock ordering and LWW mechanics
+  - Context size growth and metadata overhead
+  - COPS-GT extension for read-only transactions
+  - Garbage collection challenges and timing
+
+- **6 subjective questions** covering:
+  - L3: Transitive dependency chains with concrete examples
+  - L4: Lamport vs vector clocks (why Lamport is sufficient)
+  - L5: Implementation complexity vs Dynamo/Spanner
+  - L5: Multi-key atomicity and transaction handling
+  - L6: Datacenter topology and replication strategies
+  - L6: Real-world deployment decision (collaborative platform case study)
+
+### Total: 24 questions
+- **10 MCQ questions** - foundational concepts to advanced edge cases
+- **14 subjective questions** - practical understanding and system design
+
+All questions test practical understanding with real-world scenarios, trade-off analysis, and implementation considerations.
