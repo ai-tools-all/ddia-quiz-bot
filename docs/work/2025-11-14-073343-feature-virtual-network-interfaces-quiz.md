@@ -48,3 +48,31 @@ ddia-quiz-bot/content/chapters/17-virtual-network-interfaces/
 - Each question includes: question, options, answer, explanation, and hook
 - Topics derived from the networking fundamentals content provided
 - Progressive difficulty: basic concepts → flows/interactions → complex scenarios
+
+## Second Batch (Questions 11-20)
+
+**Additional Topics:**
+- TAP/TUN interfaces for VPN
+- Connection tracking (conntrack)
+- Custom bridge networks
+- iptables tables (filter vs nat)
+- Container-to-container communication
+- Docker network drivers comparison
+- MACVLAN/IPVLAN
+- Network troubleshooting scenarios
+- Bridge interface internals
+- Overlay networks basics
+
+**Questions Created:**
+- 11-tun-tap-difference.md (Easy)
+- 12-bridge-mac-learning.md (Easy)
+- 13-custom-bridge-benefits.md (Easy)
+- 14-connection-tracking.md (Medium)
+- 15-iptables-tables.md (Medium)
+- 16-container-communication-same-bridge.md (Medium)
+- 17-macvlan-driver.md (Medium)
+- 18-overlay-network-purpose.md (Hard)
+- 19-troubleshooting-container-network.md (Hard)
+- 20-packet-flow-inbound-complete.md (Hard)
+
+**Status:** Completed - 20 total MCQ questions created
